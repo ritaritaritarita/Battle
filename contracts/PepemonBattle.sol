@@ -11,10 +11,13 @@ import "./PepemonCard.sol";
 contract PepemonBattle is Ownable {
     using SafeMath for uint256;
 
-    enum Role {ATTACK, DEFENSE}
+    enum Role {
+        ATTACK,
+        DEFENSE
+    }
 
     struct Battle {
-        uint256 battleId;
+        uint256 bId;
         address p1;
         uint256 p1DeckId;
         address p2;
