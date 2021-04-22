@@ -6,9 +6,21 @@ pragma experimental ABIEncoderV2;
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract PepemonCard is Ownable {
+    enum BattleCardType {
+        PLANT,
+        FIRE
+    }
+
+    enum SupportCardType {
+        OFFENSE,
+        STRONG_OFFENSE,
+        DEFENSE,
+        STRONG_DEFENSE
+    }
+
     struct BattleCardStats {
-        uint256 battleCardId;
-        uint256 battleType;
+        uint256 bCardId;
+        BattleCardType bCardType;
         uint256 hp;
         uint256 spd;
         uint256 inte;
@@ -19,8 +31,9 @@ contract PepemonCard is Ownable {
     }
 
     struct SupportCardStats {
-        uint256 supportCardId;
-        uint256 supportType;
+        uint256 sCardId;
+        SupportCardType sCardType;
+        string name;
         uint256 modifierTypeCurrentTurn;
         uint256 modifierValueCurrentTurn;
         uint256 modifierTypeNextTurns;
@@ -40,10 +53,10 @@ contract PepemonCard is Ownable {
     constructor() public {}
 
     function addBattleCard(BattleCardStats memory cardData) public onlyOwner {
-        require(battleCardStats[cardData.battleCardId].battleCardId == 0, "BattleCard already exists");
+        require(battleCardStats[cardData.bCardId].bCardId == 0, "BattleCard already exists");
 
-        BattleCardStats storage _card = battleCardStats[cardData.battleCardId];
-        _card.battleCardId = cardData.battleCardId;
+        BattleCardStats storage _card = battleCardStats[cardData.bCardId];
+        _card.bCardId = cardData.bCardId;
         _card.hp = cardData.hp;
         _card.spd = cardData.spd;
         _card.inte = cardData.inte;
@@ -52,15 +65,15 @@ contract PepemonCard is Ownable {
         _card.sDef = cardData.sDef;
         _card.sAtk = cardData.sAtk;
 
-        emit BattleCardCreated(msg.sender, cardData.battleCardId);
+        emit BattleCardCreated(msg.sender, cardData.bCardId);
     }
 
     function updateBattleCard(BattleCardStats memory cardData) public onlyOwner {
-        require(battleCardStats[cardData.battleCardId].battleCardId != 0, "BattleCard not found");
+        require(battleCardStats[cardData.bCardId].bCardId != 0, "BattleCard not found");
 
-        BattleCardStats storage _card = battleCardStats[cardData.battleCardId];
+        BattleCardStats storage _card = battleCardStats[cardData.bCardId];
         _card.hp = cardData.hp;
-        _card.battleType = cardData.battleType;
+        _card.bCardType = cardData.bCardType;
         _card.spd = cardData.spd;
         _card.inte = cardData.inte;
         _card.def = cardData.def;
@@ -68,20 +81,20 @@ contract PepemonCard is Ownable {
         _card.sDef = cardData.sDef;
         _card.sAtk = cardData.sAtk;
 
-        emit BattleCardUpdated(msg.sender, cardData.battleCardId);
+        emit BattleCardUpdated(msg.sender, cardData.bCardId);
     }
 
     function getBattleCard(uint256 _id) public view returns (BattleCardStats memory) {
-        require(battleCardStats[_id].battleCardId != 0, "BattleCard not found");
+        require(battleCardStats[_id].bCardId != 0, "BattleCard not found");
         return battleCardStats[_id];
     }
 
     function addSupportCard(SupportCardStats memory cardData) public onlyOwner {
-        require(supportCardStats[cardData.supportCardId].supportCardId == 0, "SupportCard already exists");
+        require(supportCardStats[cardData.sCardId].sCardId == 0, "SupportCard already exists");
 
-        SupportCardStats storage _card = supportCardStats[cardData.supportCardId];
-        _card.supportCardId = cardData.supportCardId;
-        _card.supportType = cardData.supportType;
+        SupportCardStats storage _card = supportCardStats[cardData.sCardId];
+        _card.sCardId = cardData.sCardId;
+        _card.sCardType = cardData.sCardType;
         _card.modifierTypeCurrentTurn = cardData.modifierTypeCurrentTurn;
         _card.modifierValueCurrentTurn = cardData.modifierValueCurrentTurn;
         _card.modifierTypeNextTurns = cardData.modifierTypeNextTurns;
@@ -89,14 +102,14 @@ contract PepemonCard is Ownable {
         _card.modifierNumberOfNextTurns = cardData.modifierNumberOfNextTurns;
         _card.requirementCode = cardData.requirementCode;
 
-        emit SupportCardCreated(msg.sender, cardData.supportCardId);
+        emit SupportCardCreated(msg.sender, cardData.sCardId);
     }
 
     function updateSupportCard(SupportCardStats memory cardData) public onlyOwner {
-        require(supportCardStats[cardData.supportCardId].supportCardId != 0, "SupportCard not found");
+        require(supportCardStats[cardData.sCardId].sCardId != 0, "SupportCard not found");
 
-        SupportCardStats storage _card = supportCardStats[cardData.supportCardId];
-        _card.supportType = cardData.supportType;
+        SupportCardStats storage _card = supportCardStats[cardData.sCardId];
+        _card.sCardType = cardData.sCardType;
         _card.modifierTypeCurrentTurn = cardData.modifierTypeCurrentTurn;
         _card.modifierValueCurrentTurn = cardData.modifierValueCurrentTurn;
         _card.modifierTypeNextTurns = cardData.modifierTypeNextTurns;
@@ -104,11 +117,11 @@ contract PepemonCard is Ownable {
         _card.modifierNumberOfNextTurns = cardData.modifierNumberOfNextTurns;
         _card.requirementCode = cardData.requirementCode;
 
-        emit SupportCardCreated(msg.sender, cardData.supportCardId);
+        emit SupportCardCreated(msg.sender, cardData.sCardId);
     }
 
     function getSupportCard(uint256 _id) public view returns (SupportCardStats memory) {
-        require(supportCardStats[_id].supportCardId != 0, "SupportCard not found");
+        require(supportCardStats[_id].sCardId != 0, "SupportCard not found");
         return supportCardStats[_id];
     }
 }

@@ -55,13 +55,7 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
     /**
      * @dev Override supportInterface .
      */
-    function supportsInterface(bytes4 interfaceId)
-        public
-        virtual
-        override(ERC721, ERC1155Receiver)
-        view
-        returns (bool)
-    {
+    function supportsInterface(bytes4 interfaceId) public virtual override (ERC721, ERC1155Receiver) view returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 
