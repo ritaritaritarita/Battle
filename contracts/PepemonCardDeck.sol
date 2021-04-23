@@ -98,6 +98,14 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
         nextDeckId = nextDeckId.add(1);
     }
 
+    /**
+     * @dev Get deck by id
+     * @param _deckId uint256 ID of the deck
+     */
+    function getDeckById(uint256 _deckId) public view returns (Deck memory) {
+        return decks[_deckId];
+    }
+
     function addBattleCardToDeck(uint256 _deckId, uint256 _battleCardId) public {
         require(PepemonFactory(battleCardAddress).balanceOf(msg.sender, _battleCardId) >= 1, "Don't own battle card");
         require(_battleCardId != decks[_deckId].battleCardId, "Card already in deck");

@@ -11,8 +11,9 @@ import "./PepemonCard.sol";
 contract PepemonBattle is Ownable {
     using SafeMath for uint256;
 
-    enum Role {OFFENSE, DEFENSE, PENDING}
+    event BattleEnded(uint256 battleId, address winner);
 
+    enum Role {OFFENSE, DEFENSE, PENDING}
     enum TurnHalves {FIRST_HALF, SECOND_HALF}
 
     struct Battle {
@@ -25,6 +26,8 @@ contract PepemonBattle is Ownable {
         uint256 p1PlayedCardCount;
         uint256 p2PlayedCardCount;
         uint256 createdAt;
+        int256 p1HP;
+        int256 p2HP;
         bool isEnded;
         Turn[] turns;
         uint256[] p1SupportCardList;
@@ -97,54 +100,76 @@ contract PepemonBattle is Ownable {
         battles[nextBattleId].p2DeckId = deckContract.playerToDecks(_p2);
         battles[nextBattleId].p1PlayedCardCount = 0;
         battles[nextBattleId].p2PlayedCardCount = 0;
+        battles[nextBattleId].p1HP = cardContract.getBattleCardById(deckContract.playerToDecks(_p1)).hp;
+        battles[nextBattleId].p2HP = cardContract.getBattleCardById(deckContract.playerToDecks(_p2)).hp;
         battles[nextBattleId].createdAt = block.timestamp;
         battles[nextBattleId].isEnded = false;
         nextBattleId = nextBattleId.add(1);
     }
 
     /**
-     * @dev Start battle
+     * @dev Do battle
      * @param _battleId uint256 battle id
      */
-    function startBattle(uint256 _battleId) public {
+    function battle(uint256 _battleId) public {
         Battle storage battle = battles[_battleId];
         battle.p1SupportCardList = deckContract.getAllSupportCardsInDeck(battle.p1DeckId);
         battle.p2SupportCardList = deckContract.getAllSupportCardsInDeck(battle.p2DeckId);
+
+        while (true) {
+            Turn storage lastTurn = battle.turns[battle.turns.length - 1];
+            lastTurn = _resolveRole(lastTurn);
+            // fight on lastTurn
+            _fightInTurn(_battleId, lastTurn);
+            // Check if battle ended
+            bool isEnded = _checkIfBattleEnded(battle);
+            if (isEnded) {
+                emit BattleEnded(_battleId, battle.winner);
+                break;
+            }
+            if (lastTurn.turnHalves == TurnHalves.FIRST_HALF) {
+                lastTurn.turnHalves = TurnHalves.SECOND_HALF;
+            } else {
+                _makeNewTurn(_battleId);
+            }
+        }
     }
 
-    // /**
-    //  * @dev Get cards in turn
-    //  * @param _battleId uint256
-    //  */
-    // function _getSupportCardsInTurn(uint256 _battleId) private {
-    //     Battle memory battle = battles[_battleId];
+    /**
+     * @dev Get cards in turn
+     * @param _battleId uint256
+     */
+    function _makeNewTurn(uint256 _battleId) private {
+        Battle storage battle = battles[_battleId];
+        uint256 p1BattleCardId = deckContract.getDeckById(battle.p1DeckId).battleCardId;
+        uint256 p1INTE = cardContract.getBattleCardById(p1BattleCardId).inte;
+        uint256[] memory p1SupportCards = new uint256[](p1INTE);
+        for (uint256 i = 0; i < p1INTE; i++) {
+            p1SupportCards[i] = battle.p1SupportCardList[battle.p1PlayedCardCount + i];
+        }
+        battle.p1PlayedCardCount = battle.p1PlayedCardCount.add(p1INTE);
 
-    //     (uint256 p1BattleCardId, ) = deckContract.decks(battle.p1DeckId);
-    //     (, , , , uint256 p1INTE, , , , ) = cardContract.battleCardStats(p1BattleCardId);
-    //     uint256[] memory p1SupportCards = new uint256[](p1INTE);
-    //     for (uint256 i = 0; i < p1INTE; i++) {
-    //         p1SupportCards[i] = p1SupportCardList[p1PlayedCardCount + i];
-    //     }
-    //     p1PlayedCardCount = p1PlayedCardCount.add(p1INTE);
+        uint256 p2BattleCardId = deckContract.getDeckById(battle.p2DeckId).battleCardId;
+        uint256 p2INTE = cardContract.getBattleCardById(p2BattleCardId).inte;
+        uint256[] memory p2SupportCards = new uint256[](p2INTE);
+        for (uint256 i = 0; i < p2INTE; i++) {
+            p2SupportCards[i] = battle.p2SupportCardList[battle.p2PlayedCardCount + i];
+        }
+        battle.p2PlayedCardCount = battle.p2PlayedCardCount.add(p2INTE);
 
-    //     (uint256 p2BattleCardId, ) = deckContract.decks(battle.p2DeckId);
-    //     (, , , , uint256 p2INTE, , , , ) = cardContract.battleCardStats(p2BattleCardId);
-    //     uint256[] memory p2SupportCards = new uint256[](p2INTE);
-    //     for (uint256 i = 0; i < p2INTE; i++) {
-    //         p2SupportCards[i] = p2SupportCardList[p2PlayedCardCount + i];
-    //     }
-    //     p2PlayedCardCount = p2PlayedCardCount.add(p2INTE);
-
-    //     turns.push(
-    //         Turn(
-    //             PlayerHand(battle.p1, p1BattleCardId, p1SupportCards, Role.DEFENSE),
-    //             PlayerHand(battle.p2, p2BattleCardId, p2SupportCards, Role.DEFENSE)
-    //         )
-    //     );
-    // }
+        battle.turns.push(
+            Turn(
+                PlayerHand(battle.p1, p1BattleCardId, p1SupportCards, Role.PENDING),
+                PlayerHand(battle.p2, p2BattleCardId, p2SupportCards, Role.PENDING),
+                TurnHalves.FIRST_HALF
+            )
+        );
+    }
 
     /**
      * @dev Resolve role in the turn
+     * @dev If the turn is in first half, decide roles according to game rule
+     * @dev If the turn is in second half, switch roles
      * @param _turn Turn
      */
     function _resolveRole(Turn memory _turn) private returns (Turn memory) {
@@ -188,10 +213,27 @@ contract PepemonBattle is Ownable {
         return uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, randNonce))) % _modulus;
     }
 
-    // function fight(uint256 _attackingDeck, uint256 _defendingDeck) public {
-    //     require(Deck(deckAddress).ownerOf(_attackingDeck) == msg.sender, "Must battle with your own deck");
-    //     require(Deck(deckAddress).ownerOf(_defendingDeck) != msg.sender, "Cannot battle yourself");
+    /**
+     * @dev Check if battle ended
+     * @param _battleId uint256
+     */
+    function _checkIfBattleEnded(uint256 _battleId) private returns (bool) {
+        Battle storage battle = battles[_battleId];
+        if (battle.p1HP <= 0) {
+            battle.winner = battle.p1;
+            return true;
+        }
+        if (battle.p2HP <= 0) {
+            battle.winner = battle.p2;
+            return true;
+        }
+        return false;
+    }
 
-    //     //        uint256[] getActionCards();
-    // }
+    /**
+     * @dev Check if battle ended
+     * @param _battleId uint256
+     * @param _turn Turn
+     */
+    function _fightInTurn(uint256 _battleId, Turn memory _turn) private {}
 }
