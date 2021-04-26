@@ -11,6 +11,7 @@ import "./PepemonCard.sol";
 contract PepemonBattle is Ownable {
     using SafeMath for uint256;
 
+    event BattleCreated(uint256 battleId, address p1, address p2);
     event BattleEnded(uint256 battleId, address winner);
 
     enum Role {OFFENSE, DEFENSE, PENDING}
@@ -30,11 +31,11 @@ contract PepemonBattle is Ownable {
         int256 p2HP;
         bool isEnded;
         Turn[] turns;
-        uint256[] p1SupportCardList;
-        uint256[] p2SupportCardList;
+        uint256[] p1SupportCards;
+        uint256[] p2SupportCards;
     }
 
-    struct PlayerHand {
+    struct Hand {
         address player;
         uint256 battleCardId;
         uint256[] supportCardIdList;
@@ -42,8 +43,9 @@ contract PepemonBattle is Ownable {
     }
 
     struct Turn {
-        PlayerHand p1Hand;
-        PlayerHand p2Hand;
+        Hand p1Hand;
+        Hand p2Hand;
+        uint256[] inEffectSupportCardIds;
         TurnHalves turnHalves;
     }
 
@@ -100,10 +102,11 @@ contract PepemonBattle is Ownable {
         battles[nextBattleId].p2DeckId = deckContract.playerToDecks(_p2);
         battles[nextBattleId].p1PlayedCardCount = 0;
         battles[nextBattleId].p2PlayedCardCount = 0;
-        battles[nextBattleId].p1HP = cardContract.getBattleCardById(deckContract.playerToDecks(_p1)).hp;
-        battles[nextBattleId].p2HP = cardContract.getBattleCardById(deckContract.playerToDecks(_p2)).hp;
+        battles[nextBattleId].p1HP = int256(cardContract.getBattleCardById(deckContract.playerToDecks(_p1)).hp);
+        battles[nextBattleId].p2HP = int256(cardContract.getBattleCardById(deckContract.playerToDecks(_p2)).hp);
         battles[nextBattleId].createdAt = block.timestamp;
         battles[nextBattleId].isEnded = false;
+        emit BattleCreated(nextBattleId, _p1, _p2);
         nextBattleId = nextBattleId.add(1);
     }
 
@@ -111,18 +114,18 @@ contract PepemonBattle is Ownable {
      * @dev Do battle
      * @param _battleId uint256 battle id
      */
-    function battle(uint256 _battleId) public {
+    function fight(uint256 _battleId) public {
         Battle storage battle = battles[_battleId];
-        battle.p1SupportCardList = deckContract.getAllSupportCardsInDeck(battle.p1DeckId);
-        battle.p2SupportCardList = deckContract.getAllSupportCardsInDeck(battle.p2DeckId);
+        battle.p1SupportCards = deckContract.getAllSupportCardsInDeck(battle.p1DeckId);
+        battle.p2SupportCards = deckContract.getAllSupportCardsInDeck(battle.p2DeckId);
 
         while (true) {
             Turn storage lastTurn = battle.turns[battle.turns.length - 1];
-            lastTurn = _resolveRole(lastTurn);
+            _resolveRole(lastTurn);
             // fight on lastTurn
-            _fightInTurn(_battleId, lastTurn);
+            _fightInLastTurn(_battleId);
             // Check if battle ended
-            bool isEnded = _checkIfBattleEnded(battle);
+            bool isEnded = _checkIfBattleEnded(_battleId);
             if (isEnded) {
                 emit BattleEnded(_battleId, battle.winner);
                 break;
@@ -141,29 +144,29 @@ contract PepemonBattle is Ownable {
      */
     function _makeNewTurn(uint256 _battleId) private {
         Battle storage battle = battles[_battleId];
-        uint256 p1BattleCardId = deckContract.getDeckById(battle.p1DeckId).battleCardId;
+        (uint256 p1BattleCardId, ) = deckContract.decks(battle.p1DeckId);
+        // uint256 p1BattleCardId = deckContract.getDeckById(battle.p1DeckId).battleCardId;
         uint256 p1INTE = cardContract.getBattleCardById(p1BattleCardId).inte;
         uint256[] memory p1SupportCards = new uint256[](p1INTE);
         for (uint256 i = 0; i < p1INTE; i++) {
-            p1SupportCards[i] = battle.p1SupportCardList[battle.p1PlayedCardCount + i];
+            p1SupportCards[i] = battle.p1SupportCards[battle.p1PlayedCardCount + i];
         }
         battle.p1PlayedCardCount = battle.p1PlayedCardCount.add(p1INTE);
 
-        uint256 p2BattleCardId = deckContract.getDeckById(battle.p2DeckId).battleCardId;
+        (uint256 p2BattleCardId, ) = deckContract.decks(battle.p2DeckId);
+        // uint256 p2BattleCardId = deckContract.getDeckById(battle.p2DeckId).battleCardId;
         uint256 p2INTE = cardContract.getBattleCardById(p2BattleCardId).inte;
         uint256[] memory p2SupportCards = new uint256[](p2INTE);
         for (uint256 i = 0; i < p2INTE; i++) {
-            p2SupportCards[i] = battle.p2SupportCardList[battle.p2PlayedCardCount + i];
+            p2SupportCards[i] = battle.p2SupportCards[battle.p2PlayedCardCount + i];
         }
         battle.p2PlayedCardCount = battle.p2PlayedCardCount.add(p2INTE);
 
-        battle.turns.push(
-            Turn(
-                PlayerHand(battle.p1, p1BattleCardId, p1SupportCards, Role.PENDING),
-                PlayerHand(battle.p2, p2BattleCardId, p2SupportCards, Role.PENDING),
-                TurnHalves.FIRST_HALF
-            )
-        );
+        Turn memory turn;
+        turn.p1Hand = Hand(battle.p1, p1BattleCardId, p1SupportCards, Role.PENDING);
+        turn.p2Hand = Hand(battle.p2, p2BattleCardId, p2SupportCards, Role.PENDING);
+        turn.turnHalves = TurnHalves.FIRST_HALF;
+        battle.turns.push(turn);
     }
 
     /**
@@ -172,7 +175,7 @@ contract PepemonBattle is Ownable {
      * @dev If the turn is in second half, switch roles
      * @param _turn Turn
      */
-    function _resolveRole(Turn memory _turn) private returns (Turn memory) {
+    function _resolveRole(Turn storage _turn) private {
         uint256 p1BattleCardSpd = cardContract.getBattleCardById(_turn.p1Hand.battleCardId).spd;
         uint256 p1BattleCardInte = cardContract.getBattleCardById(_turn.p1Hand.battleCardId).inte;
         uint256 p2BattleCardSpd = cardContract.getBattleCardById(_turn.p2Hand.battleCardId).spd;
@@ -201,7 +204,6 @@ contract PepemonBattle is Ownable {
             _turn.p1Hand.role = (_turn.p1Hand.role == Role.OFFENSE ? Role.DEFENSE : Role.OFFENSE);
             _turn.p2Hand.role = (_turn.p2Hand.role == Role.OFFENSE ? Role.DEFENSE : Role.OFFENSE);
         }
-        return _turn;
     }
 
     /**
@@ -231,9 +233,8 @@ contract PepemonBattle is Ownable {
     }
 
     /**
-     * @dev Check if battle ended
+     * @dev Fight in the last turn
      * @param _battleId uint256
-     * @param _turn Turn
      */
-    function _fightInTurn(uint256 _battleId, Turn memory _turn) private {}
+    function _fightInLastTurn(uint256 _battleId) private {}
 }

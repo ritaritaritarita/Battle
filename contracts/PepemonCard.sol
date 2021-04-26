@@ -30,11 +30,22 @@ contract PepemonCard is Ownable {
         uint256 supportCardId;
         SupportCardType supportCardType;
         string name;
+        EffectOne[] effectOnes;
+        EffectMany effectMany;
+    }
+
+    struct EffectOne {
+        int256 power; // if power is 0, it is equal to the total of all offense/defense cards in the current turn
         EffectTo effectTo;
         EffectFor effectFor;
-        int256 effectOfCurrentTurn;
-        int256 effectOfNextTurns;
-        uint256 numberOfNextTurns;
+        uint256 reqCode; //requirement code
+    }
+
+    struct EffectMany {
+        int256 power;
+        int256 numTurns;
+        EffectTo effectTo;
+        EffectFor effectFor;
         uint256 reqCode; //requirement code
     }
 
@@ -85,38 +96,38 @@ contract PepemonCard is Ownable {
         return battleCardStats[_id];
     }
 
-    function addSupportCard(SupportCardStats memory cardData) public onlyOwner {
-        require(supportCardStats[cardData.supportCardId].supportCardId == 0, "SupportCard already exists");
+    // function addSupportCard(SupportCardStats memory cardData) public onlyOwner {
+    //     require(supportCardStats[cardData.supportCardId].supportCardId == 0, "SupportCard already exists");
 
-        SupportCardStats storage _card = supportCardStats[cardData.supportCardId];
-        _card.supportCardId = cardData.supportCardId;
-        _card.supportCardType = cardData.supportCardType;
-        _card.name = cardData.name;
-        _card.effectTo = cardData.effectTo;
-        _card.effectFor = cardData.effectFor;
-        _card.effectOfCurrentTurn = cardData.effectOfCurrentTurn;
-        _card.effectOfNextTurns = cardData.effectOfNextTurns;
-        _card.numberOfNextTurns = cardData.numberOfNextTurns;
-        _card.reqCode = cardData.reqCode;
+    //     SupportCardStats storage _card = supportCardStats[cardData.supportCardId];
+    //     _card.supportCardId = cardData.supportCardId;
+    //     _card.supportCardType = cardData.supportCardType;
+    //     _card.name = cardData.name;
+    //     _card.effectTo = cardData.effectTo;
+    //     _card.effectFor = cardData.effectFor;
+    //     _card.effectOfCurrentTurn = cardData.effectOfCurrentTurn;
+    //     _card.effectOfNextTurns = cardData.effectOfNextTurns;
+    //     _card.numberOfNextTurns = cardData.numberOfNextTurns;
+    //     _card.reqCode = cardData.reqCode;
 
-        emit SupportCardCreated(msg.sender, cardData.supportCardId);
-    }
+    //     emit SupportCardCreated(msg.sender, cardData.supportCardId);
+    // }
 
-    function updateSupportCard(SupportCardStats memory cardData) public onlyOwner {
-        require(supportCardStats[cardData.supportCardId].supportCardId != 0, "SupportCard not found");
+    // function updateSupportCard(SupportCardStats memory cardData) public onlyOwner {
+    //     require(supportCardStats[cardData.supportCardId].supportCardId != 0, "SupportCard not found");
 
-        SupportCardStats storage _card = supportCardStats[cardData.supportCardId];
-        _card.supportCardType = cardData.supportCardType;
-        _card.name = cardData.name;
-        _card.effectTo = cardData.effectTo;
-        _card.effectFor = cardData.effectFor;
-        _card.effectOfCurrentTurn = cardData.effectOfCurrentTurn;
-        _card.effectOfNextTurns = cardData.effectOfNextTurns;
-        _card.numberOfNextTurns = cardData.numberOfNextTurns;
-        _card.reqCode = cardData.reqCode;
+    //     SupportCardStats storage _card = supportCardStats[cardData.supportCardId];
+    //     _card.supportCardType = cardData.supportCardType;
+    //     _card.name = cardData.name;
+    //     _card.effectTo = cardData.effectTo;
+    //     _card.effectFor = cardData.effectFor;
+    //     _card.effectOfCurrentTurn = cardData.effectOfCurrentTurn;
+    //     _card.effectOfNextTurns = cardData.effectOfNextTurns;
+    //     _card.numberOfNextTurns = cardData.numberOfNextTurns;
+    //     _card.reqCode = cardData.reqCode;
 
-        emit SupportCardCreated(msg.sender, cardData.supportCardId);
-    }
+    //     emit SupportCardCreated(msg.sender, cardData.supportCardId);
+    // }
 
     function getSupportCardById(uint256 _id) public view returns (SupportCardStats memory) {
         require(supportCardStats[_id].supportCardId != 0, "SupportCard not found");
