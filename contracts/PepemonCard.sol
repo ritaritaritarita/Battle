@@ -17,6 +17,7 @@ contract PepemonCard is Ownable {
     struct BattleCardStats {
         uint256 battleCardId;
         BattleCardType battleCardType;
+        string name;
         uint256 hp; // hitpoints
         uint256 spd; // speed
         uint256 inte; // intelligence
@@ -32,10 +33,17 @@ contract PepemonCard is Ownable {
         string name;
         EffectOne[] effectOnes;
         EffectMany effectMany;
+        // If true, duplicate copies of the card in the same turn will have no extra effect.
+        bool unstackable;
+        // This property is for EffectMany now.
+        // If true, assume the card is already in effect
+        // then the same card drawn and used within a number of turns does not extend or reset duration of the effect.
+        bool unresettable;
     }
 
     struct EffectOne {
-        int256 power; // if power is 0, it is equal to the total of all offense/defense cards in the current turn
+        // If power is 0, it is equal to the total of all offense/defense cards in the current turn.
+        int256 power;
         EffectTo effectTo;
         EffectFor effectFor;
         uint256 reqCode; //requirement code
@@ -43,7 +51,7 @@ contract PepemonCard is Ownable {
 
     struct EffectMany {
         int256 power;
-        int256 numTurns;
+        uint256 numTurns;
         EffectTo effectTo;
         EffectFor effectFor;
         uint256 reqCode; //requirement code
@@ -60,10 +68,12 @@ contract PepemonCard is Ownable {
     constructor() public {}
 
     function addBattleCard(BattleCardStats memory cardData) public onlyOwner {
-        require(battleCardStats[cardData.battleCardId].battleCardId == 0, "BattleCard already exists");
+        require(battleCardStats[cardData.battleCardId].battleCardId == 0, "PepemonCard: BattleCard already exists");
 
         BattleCardStats storage _card = battleCardStats[cardData.battleCardId];
         _card.battleCardId = cardData.battleCardId;
+        _card.battleCardType = cardData.battleCardType;
+        _card.name = cardData.name;
         _card.hp = cardData.hp;
         _card.spd = cardData.spd;
         _card.inte = cardData.inte;
@@ -76,11 +86,12 @@ contract PepemonCard is Ownable {
     }
 
     function updateBattleCard(BattleCardStats memory cardData) public onlyOwner {
-        require(battleCardStats[cardData.battleCardId].battleCardId != 0, "BattleCard not found");
+        require(battleCardStats[cardData.battleCardId].battleCardId != 0, "PepemonCard: BattleCard not found");
 
         BattleCardStats storage _card = battleCardStats[cardData.battleCardId];
         _card.hp = cardData.hp;
         _card.battleCardType = cardData.battleCardType;
+        _card.name = cardData.name;
         _card.spd = cardData.spd;
         _card.inte = cardData.inte;
         _card.def = cardData.def;
@@ -92,29 +103,30 @@ contract PepemonCard is Ownable {
     }
 
     function getBattleCardById(uint256 _id) public view returns (BattleCardStats memory) {
-        require(battleCardStats[_id].battleCardId != 0, "BattleCard not found");
+        require(battleCardStats[_id].battleCardId != 0, "PepemonCard: BattleCard not found");
         return battleCardStats[_id];
     }
 
-    // function addSupportCard(SupportCardStats memory cardData) public onlyOwner {
-    //     require(supportCardStats[cardData.supportCardId].supportCardId == 0, "SupportCard already exists");
+    function addSupportCard(SupportCardStats memory cardData) public onlyOwner {
+        require(supportCardStats[cardData.supportCardId].supportCardId == 0, "PepemonCard: SupportCard already exists");
 
-    //     SupportCardStats storage _card = supportCardStats[cardData.supportCardId];
-    //     _card.supportCardId = cardData.supportCardId;
-    //     _card.supportCardType = cardData.supportCardType;
-    //     _card.name = cardData.name;
-    //     _card.effectTo = cardData.effectTo;
-    //     _card.effectFor = cardData.effectFor;
-    //     _card.effectOfCurrentTurn = cardData.effectOfCurrentTurn;
-    //     _card.effectOfNextTurns = cardData.effectOfNextTurns;
-    //     _card.numberOfNextTurns = cardData.numberOfNextTurns;
-    //     _card.reqCode = cardData.reqCode;
+        SupportCardStats storage _card = supportCardStats[cardData.supportCardId];
+        _card.supportCardId = cardData.supportCardId;
+        _card.supportCardType = cardData.supportCardType;
+        _card.name = cardData.name;
+        // _card.effectOnes = cardData.effectOnes;
+        for (uint256 i = 0; i < cardData.effectOnes.length; i++) {
+            _card.effectOnes.push(cardData.effectOnes[i]);
+        }
+        _card.effectMany = cardData.effectMany;
+        _card.unstackable = cardData.unstackable;
+        _card.unresettable = cardData.unresettable;
 
-    //     emit SupportCardCreated(msg.sender, cardData.supportCardId);
-    // }
+        emit SupportCardCreated(msg.sender, cardData.supportCardId);
+    }
 
     // function updateSupportCard(SupportCardStats memory cardData) public onlyOwner {
-    //     require(supportCardStats[cardData.supportCardId].supportCardId != 0, "SupportCard not found");
+    //     require(supportCardStats[cardData.supportCardId].supportCardId != 0, "PepemonCard: SupportCard not found");
 
     //     SupportCardStats storage _card = supportCardStats[cardData.supportCardId];
     //     _card.supportCardType = cardData.supportCardType;
@@ -130,7 +142,15 @@ contract PepemonCard is Ownable {
     // }
 
     function getSupportCardById(uint256 _id) public view returns (SupportCardStats memory) {
-        require(supportCardStats[_id].supportCardId != 0, "SupportCard not found");
+        require(supportCardStats[_id].supportCardId != 0, "PepemonCard: SupportCard not found");
         return supportCardStats[_id];
+    }
+
+    /**
+     * @dev Get supportCardType of supportCard
+     * @param _id uint256
+     */
+    function getSupportCardTypeById(uint256 _id) public view returns (SupportCardType) {
+        return getSupportCardById(_id).supportCardType;
     }
 }
