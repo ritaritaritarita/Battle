@@ -1,7 +1,7 @@
-import { deployDeckContract, getProvider } from '../helpers/contract';
-import { PepemonCard, PepemonCardDeck } from '../../typechain';
-import { PepemonFactory } from "../../typechain/PepemonFactory";
-import PepemonFactoryArtifact from '../../contracts/abi/PepemonFactory.json';
+import { deployDeckContract, getProvider } from './helpers/contract';
+import { PepemonCard, PepemonCardDeck } from '../typechain';
+import { PepemonFactory } from "../typechain/PepemonFactory";
+import PepemonFactoryArtifact from '../contracts/abi/PepemonFactory.json';
 
 import { expect } from 'chai';
 import { deployMockContract, MockContract } from 'ethereum-waffle';
