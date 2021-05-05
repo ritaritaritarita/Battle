@@ -31,8 +31,7 @@ const config: HardhatUserConfig = {
     cache: './cache',
     artifacts: './artifacts',
   },
-  defaultNetwork: 'ganache',
-  // defaultNetwork: 'rinkeby',
+  defaultNetwork: 'rinkeby',
   networks: {
     rinkeby: {
       url: "https://eth-rinkeby.alchemyapi.io/v2/" + environment.alchemyRinkebyKey,
@@ -58,12 +57,6 @@ const config: HardhatUserConfig = {
       allowUnlimitedContractSize: true,
       blockGasLimit: 0x1fffffffffffff,
     },
-    ganache: {
-      url: 'localhost:7545',
-      allowUnlimitedContractSize: true
-      // gasLimit: 6000000000,
-      // defaultBalanceEther: 10
-    }
   },
   namedAccounts: {
     deployer: {
