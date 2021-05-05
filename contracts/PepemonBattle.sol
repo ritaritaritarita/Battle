@@ -367,7 +367,7 @@ contract PepemonBattle is Ownable {
      * @dev Check if battle ended
      * @param _turn Turn
      */
-    function _checkIfBattleEnded(Turn storage _turn) private returns (bool, address) {
+    function _checkIfBattleEnded(Turn storage _turn) private view returns (bool, address) {
         if (_turn.p1Hand.tempBattleInfo.hp <= 0) {
             return (true, _turn.p1Hand.player);
         } else if (_turn.p2Hand.tempBattleInfo.hp <= 0) {
@@ -723,5 +723,6 @@ contract PepemonBattle is Ownable {
                     : false
             );
         }
+        return (isTriggered, num);
     }
 }

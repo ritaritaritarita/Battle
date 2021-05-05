@@ -114,7 +114,6 @@ contract PepemonCard is Ownable {
         _card.supportCardId = cardData.supportCardId;
         _card.supportCardType = cardData.supportCardType;
         _card.name = cardData.name;
-        // _card.effectOnes = cardData.effectOnes;
         for (uint256 i = 0; i < cardData.effectOnes.length; i++) {
             _card.effectOnes.push(cardData.effectOnes[i]);
         }
@@ -125,21 +124,22 @@ contract PepemonCard is Ownable {
         emit SupportCardCreated(msg.sender, cardData.supportCardId);
     }
 
-    // function updateSupportCard(SupportCardStats memory cardData) public onlyOwner {
-    //     require(supportCardStats[cardData.supportCardId].supportCardId != 0, "PepemonCard: SupportCard not found");
+    function updateSupportCard(SupportCardStats memory cardData) public onlyOwner {
+        require(supportCardStats[cardData.supportCardId].supportCardId != 0, "PepemonCard: SupportCard not found");
 
-    //     SupportCardStats storage _card = supportCardStats[cardData.supportCardId];
-    //     _card.supportCardType = cardData.supportCardType;
-    //     _card.name = cardData.name;
-    //     _card.effectTo = cardData.effectTo;
-    //     _card.effectFor = cardData.effectFor;
-    //     _card.effectOfCurrentTurn = cardData.effectOfCurrentTurn;
-    //     _card.effectOfNextTurns = cardData.effectOfNextTurns;
-    //     _card.numberOfNextTurns = cardData.numberOfNextTurns;
-    //     _card.reqCode = cardData.reqCode;
+        SupportCardStats storage _card = supportCardStats[cardData.supportCardId];
+        _card.supportCardId = cardData.supportCardId;
+        _card.supportCardType = cardData.supportCardType;
+        _card.name = cardData.name;
+        for (uint256 i = 0; i < cardData.effectOnes.length; i++) {
+            _card.effectOnes.push(cardData.effectOnes[i]);
+        }
+        _card.effectMany = cardData.effectMany;
+        _card.unstackable = cardData.unstackable;
+        _card.unresettable = cardData.unresettable;
 
-    //     emit SupportCardCreated(msg.sender, cardData.supportCardId);
-    // }
+        emit SupportCardUpdated(msg.sender, cardData.supportCardId);
+    }
 
     function getSupportCardById(uint256 _id) public view returns (SupportCardStats memory) {
         require(supportCardStats[_id].supportCardId != 0, "PepemonCard: SupportCard not found");

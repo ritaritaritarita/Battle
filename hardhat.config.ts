@@ -4,6 +4,7 @@ import environment from './config';
 import '@nomiclabs/hardhat-ethers';
 import '@nomiclabs/hardhat-waffle';
 import '@nomiclabs/hardhat-etherscan';
+import '@nomiclabs/hardhat-ganache';
 
 import 'hardhat-typechain';
 
@@ -19,6 +20,7 @@ const config: HardhatUserConfig = {
     settings: {
       optimizer: {
         enabled: true,
+        runs: 200
       },
     },
   },
@@ -29,7 +31,8 @@ const config: HardhatUserConfig = {
     cache: './cache',
     artifacts: './artifacts',
   },
-  defaultNetwork: 'rinkeby',
+  defaultNetwork: 'ganache',
+  // defaultNetwork: 'rinkeby',
   networks: {
     rinkeby: {
       url: "https://eth-rinkeby.alchemyapi.io/v2/" + environment.alchemyRinkebyKey,
@@ -52,7 +55,15 @@ const config: HardhatUserConfig = {
         initialIndex: 0,
         count: 0
       },
+      allowUnlimitedContractSize: true,
+      blockGasLimit: 0x1fffffffffffff,
     },
+    ganache: {
+      url: 'localhost:7545',
+      allowUnlimitedContractSize: true
+      // gasLimit: 6000000000,
+      // defaultBalanceEther: 10
+    }
   },
   namedAccounts: {
     deployer: {

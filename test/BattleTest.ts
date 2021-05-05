@@ -27,56 +27,82 @@ describe('Battle', () => {
     bobSignedDeck = deck.connect(bob);
     card = (await deployContract(alice, CardArtifact)) as PepemonCard;
     battle = (await deployContract(alice, BattleArtifact, [card.address, deck.address])) as PepemonBattle;
+    // console.log(battle.constructor._json.deployedBytecode.length);
     battleCard = await deployMockContract(alice, FactoryArtifact);
     supportCard = await deployMockContract(alice, FactoryArtifact);
 
     // card
-    await card.addBattleCard({
-      battleCardId: 1,
-      battleType: 1,
-      hp: 400,
-      spd: 5,
-      inte: 6,
-      def: 12,
-      atk: 5,
-      sAtk: 20,
-      sDef: 12
-    });
-    await card.addBattleCard({
-      battleCardId: 2,
-      battleType: 1,
-      hp: 800,
-      spd: 10,
-      inte: 7,
-      def: 24,
-      atk: 10,
-      sAtk: 40,
-      sDef: 24
-    });
-    await card.addSupportCard({
-      supportCardId: 1,
-      supportType: 1,
-      modifierTypeCurrentTurn: 1,
-      modifierValueCurrentTurn: 1,
-      modifierTypeNextTurns: 1,
-      modifierValueNextTurns: 1,
-      modifierNumberOfNextTurns: 1,
-      requirementCode: 1
-    });
-    await card.addSupportCard({
-      supportCardId: 2,
-      supportType: 2,
-      modifierTypeCurrentTurn: 2,
-      modifierValueCurrentTurn: 2,
-      modifierTypeNextTurns: 2,
-      modifierValueNextTurns: 2,
-      modifierNumberOfNextTurns: 2,
-      requirementCode: 2
-    });
+    // await card.addBattleCard({
+    //   battleCardId: 1,
+    //   battleCardType: 0,
+    //   name: 'Pepesaur',
+    //   hp: 450,
+    //   spd: 10,
+    //   inte: 5,
+    //   def: 10,
+    //   atk: 10,
+    //   sAtk: 20,
+    //   sDef: 20
+    // });
+    // await card.addBattleCard({
+    //   battleCardId: 2,
+    //   battleCardType: 0,
+    //   name: 'Pepemander',
+    //   hp: 300,
+    //   spd: 20,
+    //   inte: 6,
+    //   def: 8,
+    //   atk: 12,
+    //   sAtk: 24,
+    //   sDef: 16
+    // });
+    // await card.addSupportCard({
+    //   supportCardId: 1,
+    //   supportCardType: 0,
+    //   name: 'Fast Attack',
+    //   effectOnes: [
+    //     {
+    //       power: 2,
+    //       effectTo: 0,
+    //       effectFor: 0,
+    //       reqCode: 0
+    //     }
+    //   ],
+    //   effectMany: {
+    //     power: 0,
+    //     numTurns: 0,
+    //     effectTo: 0,
+    //     effectFor: 0,
+    //     reqCode: 0
+    //   },
+    //   unstackable: true,
+    //   unresettable: true
+    // });
+    // await card.addSupportCard({
+    //   supportCardId: 2,
+    //   supportCardType: 0,
+    //   name: 'Mid Attack',
+    //   effectOnes: [
+    //     {
+    //       power: 3,
+    //       effectTo: 0,
+    //       effectFor: 0,
+    //       reqCode: 0
+    //     }
+    //   ],
+    //   effectMany: {
+    //     power: 0,
+    //     numTurns: 0,
+    //     effectTo: 0,
+    //     effectFor: 0,
+    //     reqCode: 0
+    //   },
+    //   unstackable: true,
+    //   unresettable: true
+    // });
     // deck
-    await deck.createDeck();
-    await deck.addBattleCardToDeck(1, 1);
-
+    // await deck.createDeck();
+    // await deck.addBattleCardToDeck(1, 1);
   });
 
   it('Should allow a battle to be created', async () => {

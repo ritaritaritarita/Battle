@@ -98,17 +98,12 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
         nextDeckId = nextDeckId.add(1);
     }
 
-    // /**
-    //  * @dev Get deck by id
-    //  * @param _deckId uint256 ID of the deck
-    //  */
-    // function getDeckById(uint256 _deckId) public view returns (Deck memory) {
-    //     return decks[_deckId];
-    // }
-
     function addBattleCardToDeck(uint256 _deckId, uint256 _battleCardId) public {
-        require(PepemonFactory(battleCardAddress).balanceOf(msg.sender, _battleCardId) >= 1, "Don't own battle card");
-        require(_battleCardId != decks[_deckId].battleCardId, "Card already in deck");
+        require(
+            PepemonFactory(battleCardAddress).balanceOf(msg.sender, _battleCardId) >= 1,
+            "PepemonCardDeck: Don't own battle card"
+        );
+        require(_battleCardId != decks[_deckId].battleCardId, "PepemonCardDeck: Card already in deck");
 
         uint256 oldBattleCardId = decks[_deckId].battleCardId;
         decks[_deckId].battleCardId = _battleCardId;
@@ -119,7 +114,7 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
     }
 
     function removeBattleCardFromDeck(uint256 _deckId) public {
-        require(ownerOf(_deckId) == msg.sender, "Not your deck");
+        require(ownerOf(_deckId) == msg.sender, "PepemonCardDeck: Not your deck");
 
         uint256 oldBattleCardId = decks[_deckId].battleCardId;
 
@@ -146,10 +141,10 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
         uint256 _supportCardId,
         uint256 _amount
     ) internal {
-        require(MAX_SUPPORT_CARDS >= decks[_deckId].supportCardCount.add(_amount), "Deck is full");
+        require(MAX_SUPPORT_CARDS >= decks[_deckId].supportCardCount.add(_amount), "PepemonCardDeck: Deck overflow");
         require(
             PepemonFactory(supportCardAddress).balanceOf(msg.sender, _supportCardId) >= _amount,
-            "You don't have enough of this card"
+            "PepemonCardDeck: You don't have enough of this card"
         );
 
         if (!decks[_deckId].supportCardTypes[_supportCardId].isEntity) {
@@ -175,7 +170,7 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
     function removeSupportCardTypeFromDeck(uint256 _deckId, uint256 _supportCardId) internal {
         Deck storage deck = decks[_deckId];
         SupportCardType storage supportCardType = decks[_deckId].supportCardTypes[_supportCardId];
-        require(deck.supportCardCount - supportCardType.count >= MIN_SUPPORT_CARDS, "Deck underflow");
+        require(deck.supportCardCount - supportCardType.count >= MIN_SUPPORT_CARDS, "PepemonCardDeck: Deck underflow");
 
         uint256 cardTypeToRemove = supportCardType.pointer;
 
@@ -196,7 +191,7 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
         uint256 _supportCardId,
         uint256 _amount
     ) internal {
-        // require(decks[_deckId].supportCardCount - _amount >= MIN_SUPPORT_CARDS, "Deck underflow");
+        require(decks[_deckId].supportCardCount - _amount >= MIN_SUPPORT_CARDS, "PepemonCardDeck: Deck underflow");
         SupportCardType storage supportCardList = decks[_deckId].supportCardTypes[_supportCardId];
         supportCardList.count = supportCardList.count.sub(_amount);
 
@@ -241,13 +236,14 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
      * @dev Returns array of support cards for a deck
      * @param _deckId uint256 ID of the deck
      */
-    function getAllSupportCardsInDeck(uint256 _deckId) public view sendersDeck(_deckId) returns (uint256[] memory) {
+    function getAllSupportCardsInDeck(uint256 _deckId) public view returns (uint256[] memory) {
         Deck storage deck = decks[_deckId];
         uint256[] memory supportCards = new uint256[](deck.supportCardCount);
+        uint256 idx = 0;
         for (uint256 i = 0; i < deck.supportCardTypeList.length; i++) {
             uint256 supportCardId = deck.supportCardTypeList[i];
             for (uint256 j = 0; j < deck.supportCardTypes[supportCardId].count; j++) {
-                supportCards[i + j] = supportCardId;
+                supportCards[idx++] = supportCardId;
             }
         }
         return supportCards;

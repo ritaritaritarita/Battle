@@ -122,7 +122,6 @@ describe('Card', () => {
         });
       });
     });
-
   });
 
   describe('::SupportCard', async () => {
@@ -152,7 +151,124 @@ describe('Card', () => {
     });
 
     describe('#addSupportCard', async () => {
+      it('should be able to add support card', async () => {
+        await cardContract.addSupportCard({
+          supportCardId: 2,
+          supportCardType: 0,
+          name: 'Mid Attack',
+          effectOnes: [
+            {
+              power: 3,
+              effectTo: 0,
+              effectFor: 0,
+              reqCode: 0
+            }
+          ],
+          effectMany: {
+            power: 0,
+            numTurns: 0,
+            effectTo: 0,
+            effectFor: 0,
+            reqCode: 0
+          },
+          unstackable: true,
+          unresettable: true
+        });
+        await cardContract.supportCardStats(2).then((supportCard: any) => {
+          expect(supportCard['supportCardId']).to.eq(2);
+          expect(supportCard['name']).to.eq('Mid Attack');
+        });
+      });
+      describe('reverts if', async () => {
+        it('support card id is duplicated', async () => {
+          await expect(cardContract.addSupportCard({
+            supportCardId: 1,
+            supportCardType: 0,
+            name: 'Fast Attack',
+            effectOnes: [
+              {
+                power: 2,
+                effectTo: 0,
+                effectFor: 0,
+                reqCode: 0
+              }
+            ],
+            effectMany: {
+              power: 0,
+              numTurns: 0,
+              effectTo: 0,
+              effectFor: 0,
+              reqCode: 0
+            },
+            unstackable: true,
+            unresettable: true
+          })).to.be.revertedWith('PepemonCard: SupportCard already exists');
+        });
+      });
+    });
 
+    describe('#updateSupportCard', async () => {
+      it('should be able to update support card', async () => {
+        await cardContract.updateSupportCard({
+          supportCardId: 1,
+          supportCardType: 0,
+          name: 'Fast Attackkkkk',
+          effectOnes: [
+            {
+              power: 20,
+              effectTo: 0,
+              effectFor: 0,
+              reqCode: 0
+            }
+          ],
+          effectMany: {
+            power: 0,
+            numTurns: 0,
+            effectTo: 0,
+            effectFor: 0,
+            reqCode: 0
+          },
+          unstackable: true,
+          unresettable: true
+        });
+        await cardContract.supportCardStats(1).then((supportCard: any) => {
+          expect(supportCard['name']).to.eq('Fast Attackkkkk');
+        });
+      });
+      describe('reverts if', async () => {
+        it('support card id is not found', async () => {
+          await expect(cardContract.updateSupportCard({
+            supportCardId: 2,
+            supportCardType: 0,
+            name: 'Fast Attackkkkk',
+            effectOnes: [
+              {
+                power: 20,
+                effectTo: 0,
+                effectFor: 0,
+                reqCode: 0
+              }
+            ],
+            effectMany: {
+              power: 0,
+              numTurns: 0,
+              effectTo: 0,
+              effectFor: 0,
+              reqCode: 0
+            },
+            unstackable: true,
+            unresettable: true
+          })).to.be.revertedWith('PepemonCard: SupportCard not found');
+        });
+      });
+    });
+
+    describe('#getSupportCard', async () => {
+      it('should be able to get support card by id', async () => {
+        await cardContract.getSupportCardById(1).then((supportCard: any) => {
+          expect(supportCard['name']).to.eq('Fast Attack');
+        });
+      });
     });
   });
 });

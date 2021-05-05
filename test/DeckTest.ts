@@ -1,6 +1,6 @@
 import { deployDeckContract, getProvider } from './helpers/contract';
 import { PepemonCard, PepemonCardDeck } from '../typechain';
-import { PepemonFactory } from "../typechain/PepemonFactory";
+import { PepemonFactory } from '../typechain/PepemonFactory';
 import PepemonFactoryArtifact from '../contracts/abi/PepemonFactory.json';
 
 import { expect } from 'chai';
@@ -9,17 +9,15 @@ import { BigNumber } from 'ethers';
 
 const [alice, bob] = getProvider().getWallets();
 
-describe('Deck', () => {
+describe('::Deck', () => {
   let deck: PepemonCardDeck;
   let bobSignedDeck: PepemonCardDeck;
   let battleCard: PepemonFactory | MockContract;
   let supportCard: PepemonFactory | MockContract;
-  // let card: PepemonCard | MockContract;
 
   beforeEach(async () => {
     deck = await deployDeckContract(alice);
     bobSignedDeck = deck.connect(bob);
-    // card = await deployMockContract(alice, PepemonFactoryArtifact);
     battleCard = await deployMockContract(alice, PepemonFactoryArtifact);
     supportCard = await deployMockContract(alice, PepemonFactoryArtifact);
 
@@ -29,7 +27,7 @@ describe('Deck', () => {
     await battleCard.mock.balanceOf.withArgs(alice.address, 1).returns(1);
   });
 
-  describe('Deck', async () => {
+  describe('#Deck', async () => {
     it('Should allow a deck to be created', async () => {
       await deck.createDeck();
 
@@ -39,10 +37,10 @@ describe('Deck', () => {
     });
   });
 
-  describe('Battle card', async () => {
+  describe('#Battle card', async () => {
     beforeEach(async () => {
       await deck.createDeck();
-      await battleCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 1, 1, "0x").returns();
+      await battleCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 1, 1, '0x').returns();
       await battleCard.mock.balanceOf.withArgs(alice.address, 1).returns(1);
     });
 
@@ -55,15 +53,15 @@ describe('Deck', () => {
 
     it('Should return the previous battle card if one has already been supplied', async () => {
         // Mock deposit transfer
-      await battleCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 1, 1, "0x").returns();
-      await battleCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 2, 1, "0x").returns();
+      await battleCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 1, 1, '0x').returns();
+      await battleCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 2, 1, '0x').returns();
 
       // Mock balance
       await battleCard.mock.balanceOf.withArgs(alice.address, 1).returns(1);
       await battleCard.mock.balanceOf.withArgs(alice.address, 2).returns(1);
 
       // Mock withdrawal transfer
-      await battleCard.mock.safeTransferFrom.withArgs(deck.address, alice.address, 1, 1, "0x").returns();
+      await battleCard.mock.safeTransferFrom.withArgs(deck.address, alice.address, 1, 1, '0x').returns();
 
       // Add cards
       await deck.addBattleCardToDeck(1, 1);
@@ -73,7 +71,7 @@ describe('Deck', () => {
     });
 
     it('Should allow removing a Battle Card from the deck', async () => {
-      await battleCard.mock.safeTransferFrom.withArgs(deck.address, alice.address, 1, 1, "0x").returns();
+      await battleCard.mock.safeTransferFrom.withArgs(deck.address, alice.address, 1, 1, '0x').returns();
 
       await deck.addBattleCardToDeck(1, 1);
 
@@ -87,20 +85,20 @@ describe('Deck', () => {
     describe('Permissions', async () => {
       it('Should prevent adding cards you don\'t have', async () => {
           await battleCard.mock.balanceOf.withArgs(bob.address, 1).returns(0);
-          await expect(bobSignedDeck.addBattleCardToDeck(1, 1)).to.be.revertedWith('revert Don\'t own battle card');
+          await expect(bobSignedDeck.addBattleCardToDeck(1, 1)).to.be.revertedWith('revert PepemonCardDeck: Don\'t own battle card');
       });
 
       it('Should prevent removing a battle card from a deck which you don\'t own', async () => {
-          await expect(bobSignedDeck.removeBattleCardFromDeck(1)).to.be.revertedWith('revert Not your deck');
+          await expect(bobSignedDeck.removeBattleCardFromDeck(1)).to.be.revertedWith('revert PepemonCardDeck: Not your deck');
       });
     });
   });
 
-  describe('Support cards', async () => {
+  describe('#Support cards', async () => {
     beforeEach(async () => {
       await deck.createDeck();
-      await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 20, 2, "0x").returns();
-      await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 12, 1, "0x").returns();
+      await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 20, 2, '0x').returns();
+      await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 12, 1, '0x').returns();
 
       await supportCard.mock.balanceOf.withArgs(alice.address, 20).returns(8);
       await supportCard.mock.balanceOf.withArgs(alice.address, 12).returns(1);
@@ -130,13 +128,18 @@ describe('Deck', () => {
     });
 
     it('Should allow support cards to be removed from the deck', async () => {
-      await supportCard.mock.safeTransferFrom.withArgs(deck.address, alice.address, 20, 2, "0x").returns();
+      await supportCard.mock.balanceOf.withArgs(alice.address, 20).returns(50);
+      await supportCard.mock.balanceOf.withArgs(alice.address, 12).returns(30);
+
+      await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 20, 45, '0x').returns();
+      await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 12, 10, '0x').returns();
+      await supportCard.mock.safeTransferFrom.withArgs(deck.address, alice.address, 20, 2, '0x').returns();
 
       await deck.addSupportCardsToDeck(
         1,
         [
-            {supportCardId: 20, amount: 2},
-            {supportCardId: 12, amount: 1},
+            {supportCardId: 20, amount: 45},
+            {supportCardId: 12, amount: 10},
         ],
       );
 
@@ -146,49 +149,102 @@ describe('Deck', () => {
       }]);
 
       await deck.decks(1).then((deck: any) => {
-        expect(deck['supportCardCount']).to.eq(1);
+        expect(deck['supportCardCount']).to.eq(53);
       });
 
-      expect(await deck.getCountOfCardTypeInDeck(1, 20)).to.eq(0);
-    });
-
-    it('Should prevent exceeding the support card limit', async () => {
-      await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 20, 20, "0x").returns();
-      await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 12, 60, "0x").returns();
-
-      await supportCard.mock.balanceOf.withArgs(alice.address, 20).returns(20);
-      await supportCard.mock.balanceOf.withArgs(alice.address, 12).returns(60);
-
-      await expect(deck.addSupportCardsToDeck(
-        1,
-        [
-            {
-                supportCardId: 20,
-                amount: 20,
-            },
-            {
-                supportCardId: 12,
-                amount: 55,
-            },
-        ],
-      )).to.be.revertedWith("revert Deck is full");
+      expect(await deck.getCountOfCardTypeInDeck(1, 20)).to.eq(43);
     });
 
     it('Should allow getting all support cards from deck', async () => {
+      await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 20, 2, '0x').returns();
+      await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 12, 2, '0x').returns();
+
+      await supportCard.mock.balanceOf.withArgs(alice.address, 20).returns(8);
+      await supportCard.mock.balanceOf.withArgs(alice.address, 12).returns(2);
+
       await deck.addSupportCardsToDeck(
         1,
         [
             {supportCardId: 20, amount: 2},
-            {supportCardId: 12, amount: 1},
+            {supportCardId: 12, amount: 2},
         ],
       );
       await deck.getAllSupportCardsInDeck(1).then((supportCards: BigNumber[]) => {
-        expect(supportCards.length).to.eq(3);
+        expect(supportCards.length).to.eq(4);
+
+        for (let i = 0; i < supportCards.length; i++) {
+          console.log(supportCards[i].toString());
+        }
+      });
+    });
+
+    it('Should shuffle deck in random order', async () => {
+      await supportCard.mock.balanceOf.withArgs(alice.address, 20).returns(23);
+      await supportCard.mock.balanceOf.withArgs(alice.address, 12).returns(15);
+      await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 20, 23, '0x').returns();
+      await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 12, 15, '0x').returns();
+      await deck.addSupportCardsToDeck(
+        1,
+        [
+            {supportCardId: 20, amount: 23},
+            {supportCardId: 12, amount: 15},
+        ],
+      );
+      await deck.shuffleDeck(1).then((supportCards: BigNumber[]) => {
+        expect(supportCards.length).to.eq(38);
+        for (let i = 0; i < supportCards.length; i++) {
+          console.log(supportCards[i].toString());
+        }
+      });
+    });
+
+    describe('reverts if', async () => {
+      it('support card count is lower than min number', async () => {
+        await supportCard.mock.balanceOf.withArgs(alice.address, 20).returns(50);
+        await supportCard.mock.balanceOf.withArgs(alice.address, 12).returns(30);
+
+        await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 20, 45, '0x').returns();
+        await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 12, 10, '0x').returns();
+        await supportCard.mock.safeTransferFrom.withArgs(deck.address, alice.address, 20, 30, '0x').returns();
+
+        await deck.addSupportCardsToDeck(
+          1,
+          [
+              {supportCardId: 20, amount: 45},
+              {supportCardId: 12, amount: 10},
+          ],
+        );
+
+        await expect(deck.removeSupportCardsFromDeck(1, [{
+          supportCardId: 20,
+          amount: 30,
+        }])).to.be.revertedWith('PepemonCardDeck: Deck underflow');
+      });
+      it('support card count is greater than max number', async () => {
+        await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 20, 20, '0x').returns();
+        await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 12, 60, '0x').returns();
+
+        await supportCard.mock.balanceOf.withArgs(alice.address, 20).returns(20);
+        await supportCard.mock.balanceOf.withArgs(alice.address, 12).returns(60);
+
+        await expect(deck.addSupportCardsToDeck(
+          1,
+          [
+              {
+                  supportCardId: 20,
+                  amount: 20,
+              },
+              {
+                  supportCardId: 12,
+                  amount: 55,
+              },
+          ],
+        )).to.be.revertedWith('revert PepemonCardDeck: Deck overflow');
       });
     });
   });
 
-  describe('Permissions', async () => {
+  describe('#Permissions', async () => {
     it('Should prevent anyone but the owner from setting the Battle Card address', async () => {
       await expect(bobSignedDeck.setBattleCardAddress(bob.address)).to.be.revertedWith('Ownable: caller is not the owner');
     });
