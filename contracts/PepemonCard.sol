@@ -42,7 +42,7 @@ contract PepemonCard is Ownable {
     }
 
     struct EffectOne {
-        // If power is 0, it is equal to the total of all offense/defense cards in the current turn.
+        // If power is 0, it is equal to the total of all normal offense/defense cards in the current turn.
         int256 power;
         EffectTo effectTo;
         EffectFor effectFor;

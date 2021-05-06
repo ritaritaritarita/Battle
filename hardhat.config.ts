@@ -4,7 +4,7 @@ import environment from './config';
 import '@nomiclabs/hardhat-ethers';
 import '@nomiclabs/hardhat-waffle';
 import '@nomiclabs/hardhat-etherscan';
-import '@nomiclabs/hardhat-ganache';
+// import '@nomiclabs/hardhat-ganache';
 
 import 'hardhat-typechain';
 
@@ -31,7 +31,7 @@ const config: HardhatUserConfig = {
     cache: './cache',
     artifacts: './artifacts',
   },
-  defaultNetwork: 'rinkeby',
+  defaultNetwork: 'hardhat',
   networks: {
     rinkeby: {
       url: "https://eth-rinkeby.alchemyapi.io/v2/" + environment.alchemyRinkebyKey,
@@ -72,6 +72,9 @@ const config: HardhatUserConfig = {
   etherscan: {
     apiKey: environment.etherScanKey,
   },
+  mocha: {
+    timeout: 200000
+  }
 };
 
 export default config;
