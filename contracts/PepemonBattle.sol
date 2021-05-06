@@ -65,59 +65,83 @@ contract PepemonBattle is Ownable {
 
     mapping(uint256 => Battle) public battles;
 
-    uint256 nextBattleId;
-    uint8 refreshTurn = 5;
-    uint256 randNonce = 0;
+    uint256 private _nextBattleId;
+    uint8 private _refreshTurn = 5;
+    uint256 private _randNonce = 0;
 
-    address cardAddress;
-    address deckAddress;
+    address private _cardAddress;
+    address private _deckAddress;
 
-    PepemonCard cardContract;
-    PepemonCardDeck deckContract;
+    PepemonCard private _cardContract;
+    PepemonCardDeck private _deckContract;
 
-    constructor(address _cardAddress, address _deckAddress) public {
-        cardAddress = _cardAddress;
-        deckAddress = _deckAddress;
-        cardContract = PepemonCard(cardAddress);
-        deckContract = PepemonCardDeck(deckAddress);
-        nextBattleId = 1;
+    constructor(address cardAddress, address deckAddress) public {
+        _cardAddress = cardAddress;
+        _deckAddress = deckAddress;
+        _cardContract = PepemonCard(_cardAddress);
+        _deckContract = PepemonCardDeck(_deckAddress);
+        _nextBattleId = 1;
     }
 
     /**
      * @dev Set card address
-     * @param _cardAddress address
+     * @param cardAddress address
      */
-    function setCardAddress(address _cardAddress) public onlyOwner {
-        cardAddress = _cardAddress;
-        cardContract = PepemonCard(cardAddress);
+    function setCardAddress(address cardAddress) public onlyOwner {
+        _cardAddress = cardAddress;
+        _cardContract = PepemonCard(_cardAddress);
     }
 
     /**
      * @dev Set deck address
-     * @param _deckAddress address
+     * @param deckAddress address
      */
-    function setDeckAddress(address _deckAddress) public onlyOwner {
-        deckAddress = _deckAddress;
-        deckContract = PepemonCardDeck(deckAddress);
+    function setDeckAddress(address deckAddress) public onlyOwner {
+        _deckAddress = deckAddress;
+        _deckContract = PepemonCardDeck(_deckAddress);
     }
 
     /**
      * @dev Create battle
-     * @param _p1 address player1
-     * @param _p2 address player2
+     * @param p1 address player1
+     * @param p2 address player2
      */
-    function createBattle(address _p1, address _p2) public onlyOwner {
-        require(_p1 != _p2, "No Battle yourself");
-        battles[nextBattleId].p1 = _p1;
-        battles[nextBattleId].p2 = _p2;
-        battles[nextBattleId].winner = address(0);
-        battles[nextBattleId].battleId = nextBattleId;
-        battles[nextBattleId].p1DeckId = deckContract.playerToDecks(_p1);
-        battles[nextBattleId].p2DeckId = deckContract.playerToDecks(_p2);
-        battles[nextBattleId].createdAt = block.timestamp;
-        battles[nextBattleId].isEnded = false;
-        emit BattleCreated(nextBattleId, _p1, _p2);
-        nextBattleId = nextBattleId.add(1);
+    function createBattle(address p1, address p2) public onlyOwner {
+        require(p1 != p2, "PepemonBattle: No Battle yourself");
+        battles[_nextBattleId].p1 = p1;
+        battles[_nextBattleId].p2 = p2;
+        battles[_nextBattleId].winner = address(0);
+        battles[_nextBattleId].battleId = _nextBattleId;
+        battles[_nextBattleId].p1DeckId = _deckContract.playerToDecks(p1);
+        battles[_nextBattleId].p2DeckId = _deckContract.playerToDecks(p2);
+        battles[_nextBattleId].createdAt = block.timestamp;
+        battles[_nextBattleId].isEnded = false;
+        emit BattleCreated(_nextBattleId, p1, p2);
+        _nextBattleId = _nextBattleId.add(1);
+    }
+
+    /**
+     * @dev Get player1's support cards in battle
+     * @param battleId uint256
+     */
+    function getBattleP1SupportCards(uint256 battleId) public view returns (uint256[] memory) {
+        uint256[] memory temp = new uint256[](battles[battleId].p1SupportCards.length);
+        for (uint256 i = 0; i < battles[battleId].p1SupportCards.length; i++) {
+            temp[i] = battles[battleId].p1SupportCards[i];
+        }
+        return temp;
+    }
+
+    /**
+     * @dev Get player2's support cards in battle
+     * @param battleId uint256
+     */
+    function getBattleP2SupportCards(uint256 battleId) public view returns (uint256[] memory) {
+        uint256[] memory temp = new uint256[](battles[battleId].p2SupportCards.length);
+        for (uint256 i = 0; i < battles[battleId].p2SupportCards.length; i++) {
+            temp[i] = battles[battleId].p2SupportCards[i];
+        }
+        return temp;
     }
 
     /**
@@ -126,8 +150,9 @@ contract PepemonBattle is Ownable {
      */
     function fight(uint256 _battleId) public {
         Battle storage battle = battles[_battleId];
-        battle.p1SupportCards = deckContract.shuffleDeck(battle.p1DeckId);
-        battle.p2SupportCards = deckContract.shuffleDeck(battle.p2DeckId);
+        // battle.p1SupportCards = _deckContract.shuffleDeck(battle.p1DeckId);
+        // battle.p2SupportCards = _deckContract.shuffleDeck(battle.p2DeckId);
+        _shufflePlayerDeck(_battleId);
         // Make the first turn.
         _makeNewTurn(_battleId);
         // Battle goes!
@@ -136,7 +161,7 @@ contract PepemonBattle is Ownable {
             // Resolve role on lastTurn.
             _resolveRole(lastTurn);
             // fight on lastTurn
-            _fightInTurn(_battleId, lastTurn);
+            _fightInTurn(lastTurn);
             // If battle ended, end battle.
             (bool isEnded, address winner) = _checkIfBattleEnded(lastTurn);
             if (isEnded) {
@@ -149,12 +174,12 @@ contract PepemonBattle is Ownable {
             if (lastTurn.turnHalves == TurnHalves.FIRST_HALF) {
                 lastTurn.turnHalves = TurnHalves.SECOND_HALF;
             } else {
-                if (battle.turns.length / 5 == 0) {
+                if (battle.turns.length / _refreshTurn == 0) {
                     // Refresh players' decks.
 
                     // Reshuffle decks.
-                    battle.p1SupportCards = deckContract.shuffleDeck(battle.p1DeckId);
-                    battle.p2SupportCards = deckContract.shuffleDeck(battle.p2DeckId);
+                    battle.p1SupportCards = _deckContract.shuffleDeck(battle.p1DeckId);
+                    battle.p2SupportCards = _deckContract.shuffleDeck(battle.p2DeckId);
                     // Refresh battle state
                     // battle.p1PlayedCardCount = 0;
                     // battle.p2PlayedCardCount = 0;
@@ -167,10 +192,20 @@ contract PepemonBattle is Ownable {
     }
 
     /**
+     * @dev Shuffle players' deck in battle
+     * @param battleId uint256
+     */
+    function _shufflePlayerDeck(uint256 battleId) public {
+        Battle storage battle = battles[battleId];
+        battle.p1SupportCards = _deckContract.shuffleDeck(battle.p1DeckId);
+        battle.p2SupportCards = _deckContract.shuffleDeck(battle.p2DeckId);
+    }
+
+    /**
      * @dev Get cards in turn
      * @param _battleId uint256
      */
-    function _makeNewTurn(uint256 _battleId) private {
+    function _makeNewTurn(uint256 _battleId) public {
         Battle storage battle = battles[_battleId];
         bool isTurnsEmpty = (battle.turns.length == 0 ? true : false);
         Turn[] storage turns = battle.turns;
@@ -181,26 +216,26 @@ contract PepemonBattle is Ownable {
         uint256 p1PlayedCardCount = (isTurnsEmpty ? 0 : turns[turns.length - 1].p1Hand.playedCardCount);
         uint256 p2PlayedCardCount = (isTurnsEmpty ? 0 : turns[turns.length - 1].p2Hand.playedCardCount);
 
-        (uint256 p1BattleCardId, ) = deckContract.decks(battle.p1DeckId);
-        (uint256 p2BattleCardId, ) = deckContract.decks(battle.p2DeckId);
+        (uint256 p1BattleCardId, ) = _deckContract.decks(battle.p1DeckId);
+        (uint256 p2BattleCardId, ) = _deckContract.decks(battle.p2DeckId);
         // Copy battle card stats to temp battle info.
         TempBattleInfo memory p1TempBattleInfo;
-        p1TempBattleInfo.battleCardId = cardContract.getBattleCardById(p1BattleCardId).battleCardId;
-        p1TempBattleInfo.spd = cardContract.getBattleCardById(p1BattleCardId).spd;
-        p1TempBattleInfo.inte = cardContract.getBattleCardById(p1BattleCardId).inte;
-        p1TempBattleInfo.def = cardContract.getBattleCardById(p1BattleCardId).def;
-        p1TempBattleInfo.atk = cardContract.getBattleCardById(p1BattleCardId).atk;
-        p1TempBattleInfo.sAtk = cardContract.getBattleCardById(p1BattleCardId).sAtk;
-        p1TempBattleInfo.sDef = cardContract.getBattleCardById(p1BattleCardId).sDef;
+        p1TempBattleInfo.battleCardId = _cardContract.getBattleCardById(p1BattleCardId).battleCardId;
+        p1TempBattleInfo.spd = _cardContract.getBattleCardById(p1BattleCardId).spd;
+        p1TempBattleInfo.inte = _cardContract.getBattleCardById(p1BattleCardId).inte;
+        p1TempBattleInfo.def = _cardContract.getBattleCardById(p1BattleCardId).def;
+        p1TempBattleInfo.atk = _cardContract.getBattleCardById(p1BattleCardId).atk;
+        p1TempBattleInfo.sAtk = _cardContract.getBattleCardById(p1BattleCardId).sAtk;
+        p1TempBattleInfo.sDef = _cardContract.getBattleCardById(p1BattleCardId).sDef;
 
         TempBattleInfo memory p2TempBattleInfo;
-        p2TempBattleInfo.battleCardId = cardContract.getBattleCardById(p2BattleCardId).battleCardId;
-        p2TempBattleInfo.spd = cardContract.getBattleCardById(p2BattleCardId).spd;
-        p2TempBattleInfo.inte = cardContract.getBattleCardById(p2BattleCardId).inte;
-        p2TempBattleInfo.def = cardContract.getBattleCardById(p2BattleCardId).def;
-        p2TempBattleInfo.atk = cardContract.getBattleCardById(p2BattleCardId).atk;
-        p2TempBattleInfo.sAtk = cardContract.getBattleCardById(p2BattleCardId).sAtk;
-        p2TempBattleInfo.sDef = cardContract.getBattleCardById(p2BattleCardId).sDef;
+        p2TempBattleInfo.battleCardId = _cardContract.getBattleCardById(p2BattleCardId).battleCardId;
+        p2TempBattleInfo.spd = _cardContract.getBattleCardById(p2BattleCardId).spd;
+        p2TempBattleInfo.inte = _cardContract.getBattleCardById(p2BattleCardId).inte;
+        p2TempBattleInfo.def = _cardContract.getBattleCardById(p2BattleCardId).def;
+        p2TempBattleInfo.atk = _cardContract.getBattleCardById(p2BattleCardId).atk;
+        p2TempBattleInfo.sAtk = _cardContract.getBattleCardById(p2BattleCardId).sAtk;
+        p2TempBattleInfo.sDef = _cardContract.getBattleCardById(p2BattleCardId).sDef;
 
         if (!isTurnsEmpty) {
             // Get temp support info of last turn's hands and calculate their effect for the new turn
@@ -213,8 +248,8 @@ contract PepemonBattle is Ownable {
             p2TempBattleInfo.hp = turns[turns.length - 1].p2Hand.tempBattleInfo.hp;
         } else {
             // Copy initial hp from battle card
-            p1TempBattleInfo.hp = int256(cardContract.getBattleCardById(p1BattleCardId).hp);
-            p2TempBattleInfo.hp = int256(cardContract.getBattleCardById(p2BattleCardId).hp);
+            p1TempBattleInfo.hp = int256(_cardContract.getBattleCardById(p1BattleCardId).hp);
+            p2TempBattleInfo.hp = int256(_cardContract.getBattleCardById(p2BattleCardId).hp);
         }
         // Draw support cards by temp battle info inte and speed
         uint256 p1INTE = p1TempBattleInfo.inte;
@@ -359,8 +394,8 @@ contract PepemonBattle is Ownable {
      * @param _modulus uint256
      */
     function _randMod(uint256 _modulus) private returns (uint256) {
-        randNonce++;
-        return uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, randNonce))) % _modulus;
+        _randNonce++;
+        return uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, _randNonce))) % _modulus;
     }
 
     /**
@@ -378,32 +413,70 @@ contract PepemonBattle is Ownable {
 
     /**
      * @dev Fight in the last turn.
-     * @param _battleId uint256
-     * @param _turn Turn
+     * @param turn Turn
      */
-    function _fightInTurn(uint256 _battleId, Turn storage _turn) private {
-        Hand storage p1Hand = _turn.p1Hand;
-        Hand storage p2Hand = _turn.p2Hand;
+    function _fightInTurn(Turn storage turn) private {
+        uint256 atkPower;
+        uint256 defPower;
+
+        Hand storage p1Hand = turn.p1Hand;
+        Hand storage p2Hand = turn.p2Hand;
+
+        _calSupportOfHand(turn, p1Hand);
+        _calSupportOfHand(turn, p2Hand);
 
         if (p1Hand.role == Role.OFFENSE) {
-            for (uint256 i = 0; i < p1Hand.supportCardIds.length; i++) {
-                uint256 id = p1Hand.supportCardIds[i];
-                PepemonCard.SupportCardStats memory card = cardContract.getSupportCardById(id);
-                // Card type is OFFENSE.
+            atkPower = p1Hand.tempBattleInfo.atk;
+            defPower = p2Hand.tempBattleInfo.def;
+            if (atkPower > defPower) {
+                p2Hand.tempBattleInfo.hp -= int256(atkPower - defPower);
+            } else {
+                p2Hand.tempBattleInfo.hp -= 1;
+            }
+        } else {
+            atkPower = p2Hand.tempBattleInfo.atk;
+            defPower = p1Hand.tempBattleInfo.def;
+            if (atkPower > defPower) {
+                p1Hand.tempBattleInfo.hp -= int256(atkPower - defPower);
+            } else {
+                p1Hand.tempBattleInfo.hp -= 1;
+            }
+        }
+    }
+
+    /**
+     * @dev Calculate effects of support cards in offense hand.
+     * @param turn Turn
+     * @param hand Hand
+     */
+    function _calSupportOfHand(Turn storage turn, Hand storage hand) private {
+        // If this card is included in player's hand, adds an additional power equal to the total of
+        // all normal offense/defense cards
+        bool isPower0CardIncluded = false;
+        // Total sum of normal offense/defense cards
+        int256 totalNormalPower = 0;
+
+        if (hand.role == Role.OFFENSE) {
+            for (uint256 i = 0; i < hand.supportCardIds.length; i++) {
+                uint256 id = hand.supportCardIds[i];
+                PepemonCard.SupportCardStats memory card = _cardContract.getSupportCardById(id);
                 if (card.supportCardType == PepemonCard.SupportCardType.OFFENSE) {
+                    // Card type is OFFENSE.
                     // Calc effects of EffectOne array
                     for (uint256 j = 0; j < card.effectOnes.length; j++) {
                         PepemonCard.EffectOne memory effectOne = card.effectOnes[j];
-                        (bool isTriggered, uint256 num) = _checkReqCode(_turn, p1Hand, effectOne.reqCode);
+                        (bool isTriggered, uint256 num) = _checkReqCode(turn, hand, effectOne.reqCode);
                         if (isTriggered) {
                             if (num > 0) {
                                 int256 temp;
-                                temp = int256(p1Hand.tempBattleInfo.atk) + effectOne.power * int256(num);
-                                p1Hand.tempBattleInfo.atk = uint256(temp);
+                                temp = int256(hand.tempBattleInfo.atk) + effectOne.power * int256(num);
+                                hand.tempBattleInfo.atk = uint256(temp);
+                                totalNormalPower += effectOne.power * int256(num);
                             } else {
                                 int256 temp;
-                                temp = int256(p1Hand.tempBattleInfo.atk) + effectOne.power;
-                                p1Hand.tempBattleInfo.atk = uint256(temp);
+                                temp = int256(hand.tempBattleInfo.atk) + effectOne.power;
+                                hand.tempBattleInfo.atk = uint256(temp);
+                                totalNormalPower += effectOne.power;
                             }
                         }
                     }
@@ -413,14 +486,14 @@ contract PepemonBattle is Ownable {
                         bool isNew = true;
                         // Check if card is new to previous cards
                         for (uint256 j = 0; j < i; j++) {
-                            if (id == p1Hand.supportCardIds[j]) {
+                            if (id == hand.supportCardIds[j]) {
                                 isNew = false;
                                 break;
                             }
                         }
                         // Check if card is new to temp support info cards
-                        for (uint256 j = 0; j < p1Hand.tempSupportInfoIds.length; j++) {
-                            if (id == p1Hand.tempSupportInfoIds[j]) {
+                        for (uint256 j = 0; j < hand.tempSupportInfoIds.length; j++) {
+                            if (id == hand.tempSupportInfoIds[j]) {
                                 isNew = false;
                                 break;
                             }
@@ -432,36 +505,130 @@ contract PepemonBattle is Ownable {
                     // Calc effects of EffectOne array
                     for (uint256 j = 0; j < card.effectOnes.length; j++) {
                         PepemonCard.EffectOne memory effectOne = card.effectOnes[j];
-                        (bool isTriggered, uint256 num) = _checkReqCode(_turn, p1Hand, effectOne.reqCode);
+                        (bool isTriggered, uint256 num) = _checkReqCode(turn, hand, effectOne.reqCode);
                         if (isTriggered) {
                             if (num > 0) {
                                 int256 temp;
-                                temp = int256(p1Hand.tempBattleInfo.atk) + effectOne.power * int256(num);
-                                p1Hand.tempBattleInfo.atk = uint256(temp);
+                                temp = int256(hand.tempBattleInfo.atk) + effectOne.power * int256(num);
+                                hand.tempBattleInfo.atk = uint256(temp);
                             } else {
                                 if (effectOne.effectTo == PepemonCard.EffectTo.STRONG_ATTACK) {
-                                    p1Hand.tempBattleInfo.atk = p1Hand.tempBattleInfo.sAtk;
+                                    hand.tempBattleInfo.atk = hand.tempBattleInfo.sAtk;
+                                    continue;
                                 } else if (effectOne.power == 0) {
                                     // Equal to the total of all offense/defense cards in the current turn
+                                    isPower0CardIncluded = true;
+                                    continue;
                                 }
                                 int256 temp;
-                                temp = int256(p1Hand.tempBattleInfo.atk) + effectOne.power;
-                                p1Hand.tempBattleInfo.atk = uint256(temp);
+                                temp = int256(hand.tempBattleInfo.atk) + effectOne.power;
+                                hand.tempBattleInfo.atk = uint256(temp);
                             }
                         }
                     }
                     // If card has non-empty effectMany.
                     if (card.effectMany.power != 0) {
                         // Add card info to temp support info ids.
-                        p1Hand.tempSupportInfoIds.push(id);
-                        p1Hand.tempSupportInfos[id] = TempSupportInfo({supportCardId: id, effectMany: card.effectMany});
+                        hand.tempSupportInfoIds.push(id);
+                        hand.tempSupportInfos[id] = TempSupportInfo({supportCardId: id, effectMany: card.effectMany});
                     }
                 } else {
                     // Other card type is ignored.
                     continue;
                 }
             }
-        } else if (p1Hand.role == Role.DEFENSE) {}
+            if (isPower0CardIncluded) {
+                int256 temp;
+                temp = int256(hand.tempBattleInfo.atk) + totalNormalPower;
+                hand.tempBattleInfo.atk = uint256(temp);
+            }
+        } else if (hand.role == Role.DEFENSE) {
+            for (uint256 i = 0; i < hand.supportCardIds.length; i++) {
+                uint256 id = hand.supportCardIds[i];
+                PepemonCard.SupportCardStats memory card = _cardContract.getSupportCardById(id);
+                if (card.supportCardType == PepemonCard.SupportCardType.DEFENSE) {
+                    // Card type is DEFENSE.
+                    // Calc effects of EffectOne array
+                    for (uint256 j = 0; j < card.effectOnes.length; j++) {
+                        PepemonCard.EffectOne memory effectOne = card.effectOnes[j];
+                        (bool isTriggered, uint256 num) = _checkReqCode(turn, hand, effectOne.reqCode);
+                        if (isTriggered) {
+                            if (num > 0) {
+                                int256 temp;
+                                temp = int256(hand.tempBattleInfo.def) + effectOne.power * int256(num);
+                                hand.tempBattleInfo.def = uint256(temp);
+                                totalNormalPower += effectOne.power * int256(num);
+                            } else {
+                                int256 temp;
+                                temp = int256(hand.tempBattleInfo.def) + effectOne.power;
+                                hand.tempBattleInfo.def = uint256(temp);
+                                totalNormalPower += effectOne.power;
+                            }
+                        }
+                    }
+                } else if (card.supportCardType == PepemonCard.SupportCardType.STRONG_DEFENSE) {
+                    // Card type is STRONG DEFENSE.
+                    if (card.unstackable) {
+                        bool isNew = true;
+                        // Check if card is new to previous cards
+                        for (uint256 j = 0; j < i; j++) {
+                            if (id == hand.supportCardIds[j]) {
+                                isNew = false;
+                                break;
+                            }
+                        }
+                        // Check if card is new to temp support info cards
+                        for (uint256 j = 0; j < hand.tempSupportInfoIds.length; j++) {
+                            if (id == hand.tempSupportInfoIds[j]) {
+                                isNew = false;
+                                break;
+                            }
+                        }
+                        if (!isNew) {
+                            continue;
+                        }
+                    }
+                    // Calc effects of EffectOne array
+                    for (uint256 j = 0; j < card.effectOnes.length; j++) {
+                        PepemonCard.EffectOne memory effectOne = card.effectOnes[j];
+                        (bool isTriggered, uint256 num) = _checkReqCode(turn, hand, effectOne.reqCode);
+                        if (isTriggered) {
+                            if (num > 0) {
+                                int256 temp;
+                                temp = int256(hand.tempBattleInfo.def) + effectOne.power * int256(num);
+                                hand.tempBattleInfo.def = uint256(temp);
+                            } else {
+                                if (effectOne.effectTo == PepemonCard.EffectTo.STRONG_ATTACK) {
+                                    hand.tempBattleInfo.def = hand.tempBattleInfo.sDef;
+                                    continue;
+                                } else if (effectOne.power == 0) {
+                                    // Equal to the total of all offense/defense cards in the current turn
+                                    isPower0CardIncluded = true;
+                                    continue;
+                                }
+                                int256 temp;
+                                temp = int256(hand.tempBattleInfo.def) + effectOne.power;
+                                hand.tempBattleInfo.def = uint256(temp);
+                            }
+                        }
+                    }
+                    // If card has non-empty effectMany.
+                    if (card.effectMany.power != 0) {
+                        // Add card info to temp support info ids.
+                        hand.tempSupportInfoIds.push(id);
+                        hand.tempSupportInfos[id] = TempSupportInfo({supportCardId: id, effectMany: card.effectMany});
+                    }
+                } else {
+                    // Other card type is ignored.
+                    continue;
+                }
+            }
+            if (isPower0CardIncluded) {
+                int256 temp;
+                temp = int256(hand.tempBattleInfo.def) + totalNormalPower;
+                hand.tempBattleInfo.def = uint256(temp);
+            }
+        }
     }
 
     /**
@@ -498,9 +665,8 @@ contract PepemonBattle is Ownable {
             isTriggered = true;
             if (_turn.p1Hand.role == Role.DEFENSE) {
                 for (uint256 i = 0; i < _turn.p1Hand.supportCardIds.length; i++) {
-                    PepemonCard.SupportCardType supportCardType = cardContract.getSupportCardTypeById(
-                        _turn.p1Hand.supportCardIds[i]
-                    );
+                    PepemonCard.SupportCardType supportCardType =
+                        _cardContract.getSupportCardTypeById(_turn.p1Hand.supportCardIds[i]);
                     if (supportCardType == PepemonCard.SupportCardType.DEFENSE) {
                         isTriggered = false;
                         break;
@@ -508,9 +674,8 @@ contract PepemonBattle is Ownable {
                 }
             } else {
                 for (uint256 i = 0; i < _turn.p2Hand.supportCardIds.length; i++) {
-                    PepemonCard.SupportCardType supportCardType = cardContract.getSupportCardTypeById(
-                        _turn.p2Hand.supportCardIds[i]
-                    );
+                    PepemonCard.SupportCardType supportCardType =
+                        _cardContract.getSupportCardTypeById(_turn.p2Hand.supportCardIds[i]);
                     if (supportCardType == PepemonCard.SupportCardType.DEFENSE) {
                         isTriggered = false;
                         break;
@@ -521,9 +686,8 @@ contract PepemonBattle is Ownable {
             // Each +2 offense cards of offense pepemon.
             if (_turn.p1Hand.role == Role.OFFENSE) {
                 for (uint256 i = 0; i < _turn.p1Hand.supportCardIds.length; i++) {
-                    PepemonCard.SupportCardStats memory card = cardContract.getSupportCardById(
-                        _turn.p1Hand.supportCardIds[i]
-                    );
+                    PepemonCard.SupportCardStats memory card =
+                        _cardContract.getSupportCardById(_turn.p1Hand.supportCardIds[i]);
                     if (card.supportCardType != PepemonCard.SupportCardType.OFFENSE) {
                         continue;
                     }
@@ -536,9 +700,8 @@ contract PepemonBattle is Ownable {
                 }
             } else {
                 for (uint256 i = 0; i < _turn.p2Hand.supportCardIds.length; i++) {
-                    PepemonCard.SupportCardStats memory card = cardContract.getSupportCardById(
-                        _turn.p2Hand.supportCardIds[i]
-                    );
+                    PepemonCard.SupportCardStats memory card =
+                        _cardContract.getSupportCardById(_turn.p2Hand.supportCardIds[i]);
                     if (card.supportCardType != PepemonCard.SupportCardType.OFFENSE) {
                         continue;
                     }
@@ -555,9 +718,8 @@ contract PepemonBattle is Ownable {
             // Each +3 offense cards of offense pepemon.
             if (_turn.p1Hand.role == Role.OFFENSE) {
                 for (uint256 i = 0; i < _turn.p1Hand.supportCardIds.length; i++) {
-                    PepemonCard.SupportCardStats memory card = cardContract.getSupportCardById(
-                        _turn.p1Hand.supportCardIds[i]
-                    );
+                    PepemonCard.SupportCardStats memory card =
+                        _cardContract.getSupportCardById(_turn.p1Hand.supportCardIds[i]);
                     if (card.supportCardType != PepemonCard.SupportCardType.OFFENSE) {
                         continue;
                     }
@@ -570,9 +732,8 @@ contract PepemonBattle is Ownable {
                 }
             } else {
                 for (uint256 i = 0; i < _turn.p2Hand.supportCardIds.length; i++) {
-                    PepemonCard.SupportCardStats memory card = cardContract.getSupportCardById(
-                        _turn.p2Hand.supportCardIds[i]
-                    );
+                    PepemonCard.SupportCardStats memory card =
+                        _cardContract.getSupportCardById(_turn.p2Hand.supportCardIds[i]);
                     if (card.supportCardType != PepemonCard.SupportCardType.OFFENSE) {
                         continue;
                     }
@@ -589,9 +750,8 @@ contract PepemonBattle is Ownable {
             // Each offense card of offense pepemon.
             if (_turn.p1Hand.role == Role.OFFENSE) {
                 for (uint256 i = 0; i < _turn.p1Hand.supportCardIds.length; i++) {
-                    PepemonCard.SupportCardStats memory card = cardContract.getSupportCardById(
-                        _turn.p1Hand.supportCardIds[i]
-                    );
+                    PepemonCard.SupportCardStats memory card =
+                        _cardContract.getSupportCardById(_turn.p1Hand.supportCardIds[i]);
                     if (card.supportCardType != PepemonCard.SupportCardType.OFFENSE) {
                         continue;
                     }
@@ -599,9 +759,8 @@ contract PepemonBattle is Ownable {
                 }
             } else {
                 for (uint256 i = 0; i < _turn.p2Hand.supportCardIds.length; i++) {
-                    PepemonCard.SupportCardStats memory card = cardContract.getSupportCardById(
-                        _turn.p2Hand.supportCardIds[i]
-                    );
+                    PepemonCard.SupportCardStats memory card =
+                        _cardContract.getSupportCardById(_turn.p2Hand.supportCardIds[i]);
                     if (card.supportCardType != PepemonCard.SupportCardType.OFFENSE) {
                         continue;
                     }
@@ -613,9 +772,8 @@ contract PepemonBattle is Ownable {
             // Each +3 defense card of defense pepemon.
             if (_turn.p1Hand.role == Role.DEFENSE) {
                 for (uint256 i = 0; i < _turn.p1Hand.supportCardIds.length; i++) {
-                    PepemonCard.SupportCardStats memory card = cardContract.getSupportCardById(
-                        _turn.p1Hand.supportCardIds[i]
-                    );
+                    PepemonCard.SupportCardStats memory card =
+                        _cardContract.getSupportCardById(_turn.p1Hand.supportCardIds[i]);
                     if (card.supportCardType != PepemonCard.SupportCardType.DEFENSE) {
                         continue;
                     }
@@ -628,9 +786,8 @@ contract PepemonBattle is Ownable {
                 }
             } else {
                 for (uint256 i = 0; i < _turn.p2Hand.supportCardIds.length; i++) {
-                    PepemonCard.SupportCardStats memory card = cardContract.getSupportCardById(
-                        _turn.p2Hand.supportCardIds[i]
-                    );
+                    PepemonCard.SupportCardStats memory card =
+                        _cardContract.getSupportCardById(_turn.p2Hand.supportCardIds[i]);
                     if (card.supportCardType != PepemonCard.SupportCardType.DEFENSE) {
                         continue;
                     }
@@ -647,9 +804,8 @@ contract PepemonBattle is Ownable {
             // Each +4 defense card of defense pepemon.
             if (_turn.p1Hand.role == Role.DEFENSE) {
                 for (uint256 i = 0; i < _turn.p1Hand.supportCardIds.length; i++) {
-                    PepemonCard.SupportCardStats memory card = cardContract.getSupportCardById(
-                        _turn.p1Hand.supportCardIds[i]
-                    );
+                    PepemonCard.SupportCardStats memory card =
+                        _cardContract.getSupportCardById(_turn.p1Hand.supportCardIds[i]);
                     if (card.supportCardType != PepemonCard.SupportCardType.DEFENSE) {
                         continue;
                     }
@@ -662,9 +818,8 @@ contract PepemonBattle is Ownable {
                 }
             } else {
                 for (uint256 i = 0; i < _turn.p2Hand.supportCardIds.length; i++) {
-                    PepemonCard.SupportCardStats memory card = cardContract.getSupportCardById(
-                        _turn.p2Hand.supportCardIds[i]
-                    );
+                    PepemonCard.SupportCardStats memory card =
+                        _cardContract.getSupportCardById(_turn.p2Hand.supportCardIds[i]);
                     if (card.supportCardType != PepemonCard.SupportCardType.DEFENSE) {
                         continue;
                     }
@@ -695,9 +850,8 @@ contract PepemonBattle is Ownable {
             // Offense pepemon is using strong attack
             if (_turn.p1Hand.role == Role.OFFENSE) {
                 for (uint256 i = 0; i < _turn.p1Hand.supportCardIds.length; i++) {
-                    PepemonCard.SupportCardStats memory card = cardContract.getSupportCardById(
-                        _turn.p1Hand.supportCardIds[i]
-                    );
+                    PepemonCard.SupportCardStats memory card =
+                        _cardContract.getSupportCardById(_turn.p1Hand.supportCardIds[i]);
                     if (card.supportCardType != PepemonCard.SupportCardType.STRONG_OFFENSE) {
                         isTriggered = true;
                         break;
@@ -705,9 +859,8 @@ contract PepemonBattle is Ownable {
                 }
             } else {
                 for (uint256 i = 0; i < _turn.p2Hand.supportCardIds.length; i++) {
-                    PepemonCard.SupportCardStats memory card = cardContract.getSupportCardById(
-                        _turn.p2Hand.supportCardIds[i]
-                    );
+                    PepemonCard.SupportCardStats memory card =
+                        _cardContract.getSupportCardById(_turn.p2Hand.supportCardIds[i]);
                     if (card.supportCardType != PepemonCard.SupportCardType.STRONG_OFFENSE) {
                         isTriggered = true;
                         break;
@@ -718,7 +871,7 @@ contract PepemonBattle is Ownable {
             // The current HP is less than 50% of max HP.
             isTriggered = (
                 _hand.tempBattleInfo.hp * 2 <=
-                    int256(cardContract.getBattleCardById(_hand.tempBattleInfo.battleCardId).hp)
+                    int256(_cardContract.getBattleCardById(_hand.tempBattleInfo.battleCardId).hp)
                     ? true
                     : false
             );

@@ -57,9 +57,9 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
      */
     function supportsInterface(bytes4 interfaceId)
         public
+        view
         virtual
         override(ERC721, ERC1155Receiver)
-        view
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
@@ -98,17 +98,17 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
         nextDeckId = nextDeckId.add(1);
     }
 
-    function addBattleCardToDeck(uint256 _deckId, uint256 _battleCardId) public {
+    function addBattleCardToDeck(uint256 deckId, uint256 battleCardId) public {
         require(
-            PepemonFactory(battleCardAddress).balanceOf(msg.sender, _battleCardId) >= 1,
+            PepemonFactory(battleCardAddress).balanceOf(msg.sender, battleCardId) >= 1,
             "PepemonCardDeck: Don't own battle card"
         );
-        require(_battleCardId != decks[_deckId].battleCardId, "PepemonCardDeck: Card already in deck");
+        require(battleCardId != decks[deckId].battleCardId, "PepemonCardDeck: Card already in deck");
 
-        uint256 oldBattleCardId = decks[_deckId].battleCardId;
-        decks[_deckId].battleCardId = _battleCardId;
+        uint256 oldBattleCardId = decks[deckId].battleCardId;
+        decks[deckId].battleCardId = battleCardId;
 
-        PepemonFactory(battleCardAddress).safeTransferFrom(msg.sender, address(this), _battleCardId, 1, "");
+        PepemonFactory(battleCardAddress).safeTransferFrom(msg.sender, address(this), battleCardId, 1, "");
 
         returnBattleCardFromDeck(oldBattleCardId);
     }
@@ -123,9 +123,9 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
         returnBattleCardFromDeck(oldBattleCardId);
     }
 
-    function addSupportCardsToDeck(uint256 _deckId, SupportCardRequest[] memory _supportCards) public {
-        for (uint256 i = 0; i < _supportCards.length; i++) {
-            addSupportCardToDeck(_deckId, _supportCards[i].supportCardId, _supportCards[i].amount);
+    function addSupportCardsToDeck(uint256 deckId, SupportCardRequest[] memory supportCards) public {
+        for (uint256 i = 0; i < supportCards.length; i++) {
+            addSupportCardToDeck(deckId, supportCards[i].supportCardId, supportCards[i].amount);
         }
     }
 
