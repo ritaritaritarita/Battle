@@ -296,7 +296,7 @@ describe('::Battle', async () => {
         await expect(bobSignedBattle.createBattle(alice.address, bob.address)).to.revertedWith('revert Ownable: caller is not the owner');
       });
       it('battle yourself', async () => {
-        await expect(battle.createBattle(alice.address, alice.address)).to.revertedWith('revert PepemonBattle: No Battle yourself');
+        await expect(battle.createBattle(alice.address, alice.address)).to.revertedWith('revert PepemonBattle: Cannot battle yourself');
       });
     });
   });

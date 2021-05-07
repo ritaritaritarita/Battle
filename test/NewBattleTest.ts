@@ -9,82 +9,9 @@ import BattleArtifact from '../artifacts/contracts/PepemonBattle.sol/PepemonBatt
 import FactoryArtifact from '../contracts/abi/PepemonFactory.json';
 import {deployContract, deployMockContract, MockContract} from 'ethereum-waffle';
 import {BigNumber} from "ethers";
+import { expect } from 'chai';
 
 const [alice, bob] = getProvider().getWallets();
-
-const roles = ['OFFENSE', 'DEFENSE', 'PENDING'];
-const battleCardData = [
-    {
-        battleCardId: 1,
-        battleCardType: 0,
-        name: 'Pepesaur',
-        hp: 450,
-        spd: 10,
-        inte: 5,
-        def: 10,
-        atk: 10,
-        sAtk: 20,
-        sDef: 20
-    },
-    {
-        battleCardId: 2,
-        battleCardType: 0,
-        name: 'Pepemander',
-        hp: 300,
-        spd: 20,
-        inte: 6,
-        def: 8,
-        atk: 12,
-        sAtk: 24,
-        sDef: 16
-    }
-];
-const supportCardData = [
-    {
-        supportCardId: 1,
-        supportCardType: 0,
-        name: 'Fast Attack',
-        effectOnes: [
-            {
-                power: 2,
-                effectTo: 0,
-                effectFor: 0,
-                reqCode: 0
-            }
-        ],
-        effectMany: {
-            power: 0,
-            numTurns: 0,
-            effectTo: 0,
-            effectFor: 0,
-            reqCode: 0
-        },
-        unstackable: true,
-        unresettable: true
-    },
-    {
-        supportCardId: 2,
-        supportCardType: 0,
-        name: 'Mid Attack',
-        effectOnes: [
-            {
-                power: 3,
-                effectTo: 0,
-                effectFor: 0,
-                reqCode: 0
-            }
-        ],
-        effectMany: {
-            power: 0,
-            numTurns: 0,
-            effectTo: 0,
-            effectFor: 0,
-            reqCode: 0
-        },
-        unstackable: true,
-        unresettable: true
-    }
-];
 
 describe('Battle', async () => {
     let battle: PepemonBattle;
@@ -209,20 +136,23 @@ describe('Battle', async () => {
     const setupDecks = async () => {
         await deck.mock.playerToDecks.withArgs(alice.address).returns(1)
         await deck.mock.shuffleDeck.withArgs(1).returns([
-            1, 1, 1, 2, 2, 2,
+            1, 1, 1, 1, 1, 1, 1, 1
+            // 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
         ])
         await deck.mock.decks.withArgs(1).returns(
             BigNumber.from(1),
-            BigNumber.from(999999999)
+            BigNumber.from(40)
         )
 
         await deck.mock.playerToDecks.withArgs(bob.address).returns(2)
         await deck.mock.shuffleDeck.withArgs(2).returns([
-            1, 1, 1, 2, 2, 2,
+            1, 1, 1, 1, 1, 1, 1, 1
+            // 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+            // 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
         ])
         await deck.mock.decks.withArgs(2).returns(
             BigNumber.from(2),
-            BigNumber.from(999999999)
+            BigNumber.from(40)
         )
     }
 
@@ -230,7 +160,12 @@ describe('Battle', async () => {
         it('should ', async function () {
             await battle.createBattle(alice.address, bob.address)
 
-            await battle.fight(1)
+            // await battle._calculateTurnsPerRound(1, 2).then(console.log)
+
+            expect(await battle.fight(1)).to.emit(
+                battle,
+                "BattleEnded"
+            )
         });
     });
 });

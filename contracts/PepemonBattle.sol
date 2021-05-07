@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./PepemonCardDeck.sol";
 import "./PepemonCard.sol";
+import "hardhat/console.sol";
 
 contract PepemonBattle is Ownable {
     using SafeMath for uint256;
@@ -159,38 +160,46 @@ contract PepemonBattle is Ownable {
         _shufflePlayerDeck(battleId);
         // Make the first turn.
         _makeNewTurn(battleId);
+
+        uint256 turnsPerRound = _calculateTurnsPerRound(battle.p1DeckId, battle.p2DeckId);
+
         // Battle goes!
         while (true) {
-            // Resolve role on lastTurn.
-            _resolveRole(battleId);
-            // fight on lastTurn
-            _fightInTurn(battleId);
-            // If battle ended, end battle.
-            (bool isEnded, address winner) = _checkIfBattleEnded(battleId);
-            if (isEnded) {
-                battle.winner = winner;
-                battle.endedAt = block.timestamp;
-                battle.isEnded = true;
-                emit BattleEnded(battleId, winner);
+            for (uint256 i = 0; i < turnsPerRound; i++) {
+                // Resolve role on lastTurn.
+                _resolveRole(battleId);
+                // fight on lastTurn
+                _fightInTurn(battleId);
 
-                break;
-            }
-            // If the current half is first half, go over second half
-            // or go over next turn.
-            if (battle.turnHalves == TurnHalves.FIRST_HALF) {
-                battle.turnHalves = TurnHalves.SECOND_HALF;
-            } else {
-                if (battle.turns / _refreshTurn == 0) {
-                    // Refresh players' decks.
+                (bool isEnded, address winner) = _checkIfBattleEnded(battleId);
 
-                    // Reshuffle decks.
-                    battle.p1SupportCards = _deckContract.shuffleDeck(battle.p1DeckId);
-                    battle.p2SupportCards = _deckContract.shuffleDeck(battle.p2DeckId);
-                    // Refresh battle state
-                    hands[battle.p1].playedCardCount = 0;
-                    hands[battle.p2].playedCardCount = 0;
+                // If battle ended, end battle.
+                if (true) {
+                    battle.winner = battle.p1;
+                    battle.endedAt = block.timestamp;
+                    battle.isEnded = true;
+                    emit BattleEnded(battleId, winner);
+
+                    break;
                 }
-                _makeNewTurn(battleId);
+
+                // If the current half is first half, go over second half
+                // or go over next turn.
+                if (battle.turnHalves == TurnHalves.FIRST_HALF) {
+                    battle.turnHalves = TurnHalves.SECOND_HALF;
+                } else {
+                    if (battle.turns / _refreshTurn == 0) {
+                        // Refresh players' decks.
+
+                        // Reshuffle decks.
+                        battle.p1SupportCards = _deckContract.shuffleDeck(battle.p1DeckId);
+                        battle.p2SupportCards = _deckContract.shuffleDeck(battle.p2DeckId);
+                        // Refresh battle state
+                        hands[battle.p1].playedCardCount = 0;
+                        hands[battle.p2].playedCardCount = 0;
+                    }
+                    _makeNewTurn(battleId);
+                }
             }
             break;
         }
@@ -751,5 +760,27 @@ contract PepemonBattle is Ownable {
             );
         }
         return (isTriggered, num);
+    }
+
+
+    /**
+        @dev Check the maximum number of turns that can be played each round, to do this we divide the smallest deck
+        size with the the largest hand size
+
+        @param _deckOne uint256
+        @param _deckTwo uint256
+        @return _turns uint256
+     */
+    function _calculateTurnsPerRound(uint256 _deckOne, uint256 _deckTwo) public view returns (uint256 _turns) {
+        (uint256 playerOneBattleCardId, uint256 playerOneCardCount) = _deckContract.decks(_deckOne);
+        (uint256 playerTwoBattleCardId,uint256 playerTwoCardCount) = _deckContract.decks(_deckTwo);
+
+        uint256 playerOneHandSize = _cardContract.getBattleCardById(playerOneBattleCardId).inte;
+        uint256 playerTwoHandSize = _cardContract.getBattleCardById(playerTwoBattleCardId).inte;
+
+        uint256 smallestDeckSize = playerOneCardCount > playerTwoCardCount ? playerTwoCardCount : playerOneCardCount;
+        uint256 largestHandSize = playerOneHandSize > playerTwoHandSize ? playerOneHandSize : playerTwoHandSize;
+
+        return smallestDeckSize / largestHandSize;
     }
 }
