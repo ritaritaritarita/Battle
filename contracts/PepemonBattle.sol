@@ -17,6 +17,28 @@ contract PepemonBattle is Ownable {
 
     enum Role {OFFENSE, DEFENSE, PENDING}
     enum TurnHalves {FIRST_HALF, SECOND_HALF}
+    enum Attacker {PLAYER_ONE, PLAYER_TWO}
+
+    struct NewBattle {
+        Player playerOne;
+        Player playerTwo;
+        uint256 currentTurn;
+        uint256 currentRound;
+        Attacker attacker;
+    }
+
+    struct Player {
+        address playerAddress;
+        uint256 deckId;
+        Hand hand;
+    }
+
+    struct Hand {
+        PepemonCard.BattleCardStats battleCard;
+        TempBattleInfo battleCardBoosts;
+        uint256 playedCardCount;
+        uint256[] cards;
+    }
 
     struct Battle {
         address p1;
@@ -32,15 +54,6 @@ contract PepemonBattle is Ownable {
         uint256[] p1SupportCards;
         uint256[] p2SupportCards;
         TurnHalves turnHalves;
-    }
-
-    struct Hand {
-        TempBattleInfo tempBattleInfo;
-        uint256 playedCardCount;
-        uint256[] supportCardIds;
-        uint256[] tempSupportInfoIds;
-        mapping(uint256 => TempSupportInfo) tempSupportInfos;
-        Role role;
     }
 
     // struct Turn {
@@ -156,12 +169,15 @@ contract PepemonBattle is Ownable {
      * @param battleId uint256 battle id
      */
     function fight(uint256 battleId) public {
-        Battle storage battle = battles[battleId];
+        NewBattle memory battle = battles[battleId];
         _shufflePlayerDeck(battleId);
         // Make the first turn.
         _makeNewTurn(battleId);
 
-        uint256 turnsPerRound = _calculateTurnsPerRound(battle.p1DeckId, battle.p2DeckId);
+        uint256 turnsPerRound = _calculateTurnsPerRound(
+            battle.playerOne.deckId,
+            battle.playerTwo.deckId
+        );
 
         // Battle goes!
         while (true) {
@@ -171,33 +187,25 @@ contract PepemonBattle is Ownable {
                 // fight on lastTurn
                 _fightInTurn(battleId);
 
-                (bool isEnded, address winner) = _checkIfBattleEnded(battleId);
+                (bool isEnded, address winner) = _checkIfBattleEnded(battle);
 
                 // If battle ended, end battle.
                 if (true) {
-                    battle.winner = battle.p1;
-                    battle.endedAt = block.timestamp;
-                    battle.isEnded = true;
                     emit BattleEnded(battleId, winner);
-
                     break;
                 }
 
                 // If the current half is first half, go over second half
                 // or go over next turn.
-                if (battle.turnHalves == TurnHalves.FIRST_HALF) {
-                    battle.turnHalves = TurnHalves.SECOND_HALF;
-                } else {
-                    if (battle.turns / _refreshTurn == 0) {
-                        // Refresh players' decks.
+                if (battle.currentRound <= turnsPerRound) {
+                    // Reshuffle decks.
+                    battle.playerOne.hand.cards = _deckContract.shuffleDeck(battle.playerOne.deckId);
+                    battle.playerTwo.hand.cards = _deckContract.shuffleDeck(battle.playerTwo.deckId);
 
-                        // Reshuffle decks.
-                        battle.p1SupportCards = _deckContract.shuffleDeck(battle.p1DeckId);
-                        battle.p2SupportCards = _deckContract.shuffleDeck(battle.p2DeckId);
-                        // Refresh battle state
-                        hands[battle.p1].playedCardCount = 0;
-                        hands[battle.p2].playedCardCount = 0;
-                    }
+                    // Refresh battle state todo not sure we need these
+                    //                    hands[battle.p1].playedCardCount = 0;
+                    //                    hands[battle.p2].playedCardCount = 0;
+                } else {
                     _makeNewTurn(battleId);
                 }
             }
@@ -220,75 +228,75 @@ contract PepemonBattle is Ownable {
      * @param battleId uint256
      */
     function _makeNewTurn(uint256 battleId) public {
-        Battle storage battle = battles[battleId];
-        Hand storage p1Hand = hands[battle.p1];
-        Hand storage p2Hand = hands[battle.p2];
-
-        bool isFirstTurn = (battle.turns == 0 ? true : false);
-        uint256 p1PlayedCardCount = (isFirstTurn ? 0 : p1Hand.playedCardCount);
-        uint256 p2PlayedCardCount = (isFirstTurn ? 0 : p2Hand.playedCardCount);
-
-        // todo the battle card does not change between rounds so we can persist this somewhere
-        (uint256 p1BattleCardId,) = _deckContract.decks(battle.p1DeckId);
-        (uint256 p2BattleCardId,) = _deckContract.decks(battle.p2DeckId);
-
-        //        // Copy battle card stats to temp battle info.
-        TempBattleInfo memory p1TempBattleInfo;
-
-        // We can store this in the same place as line 220
-        p1TempBattleInfo.battleCardId = _cardContract.getBattleCardById(p1BattleCardId).battleCardId;
-        p1TempBattleInfo.spd = _cardContract.getBattleCardById(p1BattleCardId).spd;
-        p1TempBattleInfo.inte = _cardContract.getBattleCardById(p1BattleCardId).inte;
-        p1TempBattleInfo.def = _cardContract.getBattleCardById(p1BattleCardId).def;
-        p1TempBattleInfo.atk = _cardContract.getBattleCardById(p1BattleCardId).atk;
-        p1TempBattleInfo.sAtk = _cardContract.getBattleCardById(p1BattleCardId).sAtk;
-        p1TempBattleInfo.sDef = _cardContract.getBattleCardById(p1BattleCardId).sDef;
-
-        TempBattleInfo memory p2TempBattleInfo;
-        p2TempBattleInfo.battleCardId = _cardContract.getBattleCardById(p2BattleCardId).battleCardId;
-        p2TempBattleInfo.spd = _cardContract.getBattleCardById(p2BattleCardId).spd;
-        p2TempBattleInfo.inte = _cardContract.getBattleCardById(p2BattleCardId).inte;
-        p2TempBattleInfo.def = _cardContract.getBattleCardById(p2BattleCardId).def;
-        p2TempBattleInfo.atk = _cardContract.getBattleCardById(p2BattleCardId).atk;
-        p2TempBattleInfo.sAtk = _cardContract.getBattleCardById(p2BattleCardId).sAtk;
-        p2TempBattleInfo.sDef = _cardContract.getBattleCardById(p2BattleCardId).sDef;
-
-        if (!isFirstTurn) {
-            // Get temp support info of previous turn's hands and calculate their effect for the new turn
-            p1TempBattleInfo = _calTempSupportOfTurn(battle.p1, p1TempBattleInfo);
-            p2TempBattleInfo = _calTempSupportOfTurn(battle.p2, p2TempBattleInfo);
-            // Copy hp from last turn
-            p1TempBattleInfo.hp = p1Hand.tempBattleInfo.hp;
-            p2TempBattleInfo.hp = p2Hand.tempBattleInfo.hp;
-        } else {
-            // Copy initial hp from battle card
-            p1TempBattleInfo.hp = int256(_cardContract.getBattleCardById(p1BattleCardId).hp);
-            p2TempBattleInfo.hp = int256(_cardContract.getBattleCardById(p2BattleCardId).hp);
-        }
-        // Draw support cards by temp battle info inte and speed
-        uint256 p1INTE = p1TempBattleInfo.inte;
-        uint256[] memory p1SupportCards = new uint256[](p1INTE);
-        for (uint256 i = 0; i < p1INTE; i++) {
-            p1SupportCards[i] = battle.p1SupportCards[p1PlayedCardCount + i];
-        }
-
-        uint256 p2INTE = p2TempBattleInfo.inte;
-        uint256[] memory p2SupportCards = new uint256[](p2INTE);
-        for (uint256 i = 0; i < p2INTE; i++) {
-            p2SupportCards[i] = battle.p2SupportCards[p2PlayedCardCount + i];
-        }
-        // Make a new turn
-        p1Hand.tempBattleInfo = p1TempBattleInfo;
-        p1Hand.supportCardIds = p1SupportCards;
-        p1Hand.playedCardCount = p1PlayedCardCount.add(p1INTE);
-        p1Hand.role = Role.PENDING;
-        // Player 2's hand
-        p2Hand.tempBattleInfo = p2TempBattleInfo;
-        p2Hand.supportCardIds = p2SupportCards;
-        p2Hand.playedCardCount = p2PlayedCardCount.add(p2INTE);
-        p2Hand.role = Role.PENDING;
-        battle.turnHalves = TurnHalves.FIRST_HALF;
-        battle.turns = battle.turns.add(1);
+        //        NewBattle storage battle = battles[battleId];
+        //        Hand storage p1Hand = hands[battle.p1];
+        //        Hand storage p2Hand = hands[battle.p2];
+        //
+        //        bool isFirstTurn = (battle.turns == 0 ? true : false);
+        //        uint256 p1PlayedCardCount = (isFirstTurn ? 0 : p1Hand.playedCardCount);
+        //        uint256 p2PlayedCardCount = (isFirstTurn ? 0 : p2Hand.playedCardCount);
+        //
+        //        // todo the battle card does not change between rounds so we can persist this somewhere
+        //        (uint256 p1BattleCardId,) = _deckContract.decks(battle.p1DeckId);
+        //        (uint256 p2BattleCardId,) = _deckContract.decks(battle.p2DeckId);
+        //
+        //        //        // Copy battle card stats to temp battle info.
+        //        TempBattleInfo memory p1TempBattleInfo;
+        //
+        //        // We can store this in the same place as line 220
+        //        p1TempBattleInfo.battleCardId = _cardContract.getBattleCardById(p1BattleCardId).battleCardId;
+        //        p1TempBattleInfo.spd = _cardContract.getBattleCardById(p1BattleCardId).spd;
+        //        p1TempBattleInfo.inte = _cardContract.getBattleCardById(p1BattleCardId).inte;
+        //        p1TempBattleInfo.def = _cardContract.getBattleCardById(p1BattleCardId).def;
+        //        p1TempBattleInfo.atk = _cardContract.getBattleCardById(p1BattleCardId).atk;
+        //        p1TempBattleInfo.sAtk = _cardContract.getBattleCardById(p1BattleCardId).sAtk;
+        //        p1TempBattleInfo.sDef = _cardContract.getBattleCardById(p1BattleCardId).sDef;
+        //
+        //        TempBattleInfo memory p2TempBattleInfo;
+        //        p2TempBattleInfo.battleCardId = _cardContract.getBattleCardById(p2BattleCardId).battleCardId;
+        //        p2TempBattleInfo.spd = _cardContract.getBattleCardById(p2BattleCardId).spd;
+        //        p2TempBattleInfo.inte = _cardContract.getBattleCardById(p2BattleCardId).inte;
+        //        p2TempBattleInfo.def = _cardContract.getBattleCardById(p2BattleCardId).def;
+        //        p2TempBattleInfo.atk = _cardContract.getBattleCardById(p2BattleCardId).atk;
+        //        p2TempBattleInfo.sAtk = _cardContract.getBattleCardById(p2BattleCardId).sAtk;
+        //        p2TempBattleInfo.sDef = _cardContract.getBattleCardById(p2BattleCardId).sDef;
+        //
+        //        if (!isFirstTurn) {
+        //            // Get temp support info of previous turn's hands and calculate their effect for the new turn
+        //            p1TempBattleInfo = _calTempSupportOfTurn(battle.p1, p1TempBattleInfo);
+        //            p2TempBattleInfo = _calTempSupportOfTurn(battle.p2, p2TempBattleInfo);
+        //            // Copy hp from last turn
+        //            p1TempBattleInfo.hp = p1Hand.tempBattleInfo.hp;
+        //            p2TempBattleInfo.hp = p2Hand.tempBattleInfo.hp;
+        //        } else {
+        //            // Copy initial hp from battle card
+        //            p1TempBattleInfo.hp = int256(_cardContract.getBattleCardById(p1BattleCardId).hp);
+        //            p2TempBattleInfo.hp = int256(_cardContract.getBattleCardById(p2BattleCardId).hp);
+        //        }
+        //        // Draw support cards by temp battle info inte and speed
+        //        uint256 p1INTE = p1TempBattleInfo.inte;
+        //        uint256[] memory p1SupportCards = new uint256[](p1INTE);
+        //        for (uint256 i = 0; i < p1INTE; i++) {
+        //            p1SupportCards[i] = battle.p1SupportCards[p1PlayedCardCount + i];
+        //        }
+        //
+        //        uint256 p2INTE = p2TempBattleInfo.inte;
+        //        uint256[] memory p2SupportCards = new uint256[](p2INTE);
+        //        for (uint256 i = 0; i < p2INTE; i++) {
+        //            p2SupportCards[i] = battle.p2SupportCards[p2PlayedCardCount + i];
+        //        }
+        //        // Make a new turn
+        //        p1Hand.tempBattleInfo = p1TempBattleInfo;
+        //        p1Hand.supportCardIds = p1SupportCards;
+        //        p1Hand.playedCardCount = p1PlayedCardCount.add(p1INTE);
+        //        p1Hand.role = Role.PENDING;
+        //        // Player 2's hand
+        //        p2Hand.tempBattleInfo = p2TempBattleInfo;
+        //        p2Hand.supportCardIds = p2SupportCards;
+        //        p2Hand.playedCardCount = p2PlayedCardCount.add(p2INTE);
+        //        p2Hand.role = Role.PENDING;
+        //        battle.turnHalves = TurnHalves.FIRST_HALF;
+        //        battle.turns = battle.turns.add(1);
     }
 
     /**
@@ -300,48 +308,48 @@ contract PepemonBattle is Ownable {
     private
     returns (TempBattleInfo memory)
     {
-        Hand storage hand = hands[handAddr];
-        uint256 i = 0;
-        uint256[] storage tempSupportInfoIds = hand.tempSupportInfoIds;
-        while (i < tempSupportInfoIds.length) {
-            TempSupportInfo storage tempSupportInfo = hand.tempSupportInfos[i];
-            PepemonCard.EffectMany storage effect = tempSupportInfo.effectMany;
-            if (effect.numTurns >= 1) {
-                if (effect.effectFor == PepemonCard.EffectFor.ME) {
-                    // Currently effectTo of EffectMany can be ATTACK, DEFENSE, SPEED and INTELLIGENCE
-                    int256 temp;
-                    if (effect.effectTo == PepemonCard.EffectTo.ATTACK) {
-                        temp = int256(tempBattleInfo.atk) + effect.power;
-                        tempBattleInfo.atk = uint256(temp);
-                    } else if (effect.effectTo == PepemonCard.EffectTo.DEFENSE) {
-                        temp = int256(tempBattleInfo.def) + effect.power;
-                        tempBattleInfo.def = uint256(temp);
-                    } else if (effect.effectTo == PepemonCard.EffectTo.SPEED) {
-                        temp = int256(tempBattleInfo.spd) + effect.power;
-                        tempBattleInfo.spd = uint256(temp);
-                    } else if (effect.effectTo == PepemonCard.EffectTo.INTELLIGENCE) {
-                        temp = int256(tempBattleInfo.inte) + effect.power;
-                        tempBattleInfo.inte = uint256(temp);
-                    }
-                } else {
-                    // Currently effectFor of EffectMany can be ME so ignored ENEMY
-                }
-                // Decrease effect numTurns by 1
-                effect.numTurns = effect.numTurns.sub(1);
-                // Delete this one from tempSupportInfo if the card is no longer available
-                if (effect.numTurns == 0) {
-                    delete hand.tempSupportInfos[i];
-                    if (i < tempSupportInfoIds.length - 1) {
-                        tempSupportInfoIds[i] = tempSupportInfoIds[tempSupportInfoIds.length - 1];
-                    }
-                    tempSupportInfoIds.pop();
-                    continue;
-                }
-            }
-            i++;
-        }
-
-        return tempBattleInfo;
+        //        Hand storage hand = hands[handAddr];
+        //        uint256 i = 0;
+        //        uint256[] storage tempSupportInfoIds = hand.tempSupportInfoIds;
+        //        while (i < tempSupportInfoIds.length) {
+        //            TempSupportInfo storage tempSupportInfo = hand.tempSupportInfos[i];
+        //            PepemonCard.EffectMany storage effect = tempSupportInfo.effectMany;
+        //            if (effect.numTurns >= 1) {
+        //                if (effect.effectFor == PepemonCard.EffectFor.ME) {
+        //                    // Currently effectTo of EffectMany can be ATTACK, DEFENSE, SPEED and INTELLIGENCE
+        //                    int256 temp;
+        //                    if (effect.effectTo == PepemonCard.EffectTo.ATTACK) {
+        //                        temp = int256(tempBattleInfo.atk) + effect.power;
+        //                        tempBattleInfo.atk = uint256(temp);
+        //                    } else if (effect.effectTo == PepemonCard.EffectTo.DEFENSE) {
+        //                        temp = int256(tempBattleInfo.def) + effect.power;
+        //                        tempBattleInfo.def = uint256(temp);
+        //                    } else if (effect.effectTo == PepemonCard.EffectTo.SPEED) {
+        //                        temp = int256(tempBattleInfo.spd) + effect.power;
+        //                        tempBattleInfo.spd = uint256(temp);
+        //                    } else if (effect.effectTo == PepemonCard.EffectTo.INTELLIGENCE) {
+        //                        temp = int256(tempBattleInfo.inte) + effect.power;
+        //                        tempBattleInfo.inte = uint256(temp);
+        //                    }
+        //                } else {
+        //                    // Currently effectFor of EffectMany can be ME so ignored ENEMY
+        //                }
+        //                // Decrease effect numTurns by 1
+        //                effect.numTurns = effect.numTurns.sub(1);
+        //                // Delete this one from tempSupportInfo if the card is no longer available
+        //                if (effect.numTurns == 0) {
+        //                    delete hand.tempSupportInfos[i];
+        //                    if (i < tempSupportInfoIds.length - 1) {
+        //                        tempSupportInfoIds[i] = tempSupportInfoIds[tempSupportInfoIds.length - 1];
+        //                    }
+        //                    tempSupportInfoIds.pop();
+        //                    continue;
+        //                }
+        //            }
+        //            i++;
+        //        }
+        //
+        //        return tempBattleInfo;
     }
 
     /**
@@ -351,38 +359,38 @@ contract PepemonBattle is Ownable {
      * @param battleId uint256
      */
     function _resolveRole(uint256 battleId) public {
-        Battle storage battle = battles[battleId];
-        Hand storage p1Hand = hands[battle.p1];
-        Hand storage p2Hand = hands[battle.p2];
-
-        uint256 p1BattleCardSpd = p1Hand.tempBattleInfo.spd;
-        uint256 p1BattleCardInte = p1Hand.tempBattleInfo.inte;
-        uint256 p2BattleCardSpd = p2Hand.tempBattleInfo.spd;
-        uint256 p2BattleCardInte = p2Hand.tempBattleInfo.inte;
-        if (battle.turnHalves == TurnHalves.FIRST_HALF) {
-            if (p1BattleCardSpd > p2BattleCardSpd) {
-                p1Hand.role = Role.OFFENSE;
-                p2Hand.role = Role.DEFENSE;
-            } else if (p1BattleCardSpd < p2BattleCardSpd) {
-                p1Hand.role = Role.DEFENSE;
-                p2Hand.role = Role.OFFENSE;
-            } else {
-                if (p1BattleCardInte > p2BattleCardInte) {
-                    p1Hand.role = Role.OFFENSE;
-                    p2Hand.role = Role.DEFENSE;
-                } else if (p1BattleCardInte < p2BattleCardInte) {
-                    p1Hand.role = Role.DEFENSE;
-                    p2Hand.role = Role.OFFENSE;
-                } else {
-                    uint256 rand = _randMod(2);
-                    p1Hand.role = (rand == 0 ? Role.OFFENSE : Role.DEFENSE);
-                    p2Hand.role = (rand == 0 ? Role.DEFENSE : Role.OFFENSE);
-                }
-            }
-        } else {
-            p1Hand.role = (p1Hand.role == Role.OFFENSE ? Role.DEFENSE : Role.OFFENSE);
-            p2Hand.role = (p2Hand.role == Role.OFFENSE ? Role.DEFENSE : Role.OFFENSE);
-        }
+        //        Battle storage battle = battles[battleId];
+        //        Hand storage p1Hand = hands[battle.p1];
+        //        Hand storage p2Hand = hands[battle.p2];
+        //
+        //        uint256 p1BattleCardSpd = p1Hand.tempBattleInfo.spd;
+        //        uint256 p1BattleCardInte = p1Hand.tempBattleInfo.inte;
+        //        uint256 p2BattleCardSpd = p2Hand.tempBattleInfo.spd;
+        //        uint256 p2BattleCardInte = p2Hand.tempBattleInfo.inte;
+        //        if (battle.turnHalves == TurnHalves.FIRST_HALF) {
+        //            if (p1BattleCardSpd > p2BattleCardSpd) {
+        //                p1Hand.role = Role.OFFENSE;
+        //                p2Hand.role = Role.DEFENSE;
+        //            } else if (p1BattleCardSpd < p2BattleCardSpd) {
+        //                p1Hand.role = Role.DEFENSE;
+        //                p2Hand.role = Role.OFFENSE;
+        //            } else {
+        //                if (p1BattleCardInte > p2BattleCardInte) {
+        //                    p1Hand.role = Role.OFFENSE;
+        //                    p2Hand.role = Role.DEFENSE;
+        //                } else if (p1BattleCardInte < p2BattleCardInte) {
+        //                    p1Hand.role = Role.DEFENSE;
+        //                    p2Hand.role = Role.OFFENSE;
+        //                } else {
+        //                    uint256 rand = _randMod(2);
+        //                    p1Hand.role = (rand == 0 ? Role.OFFENSE : Role.DEFENSE);
+        //                    p2Hand.role = (rand == 0 ? Role.DEFENSE : Role.OFFENSE);
+        //                }
+        //            }
+        //        } else {
+        //            p1Hand.role = (p1Hand.role == Role.OFFENSE ? Role.DEFENSE : Role.OFFENSE);
+        //            p2Hand.role = (p2Hand.role == Role.OFFENSE ? Role.DEFENSE : Role.OFFENSE);
+        //        }
     }
 
     /**
@@ -399,16 +407,14 @@ contract PepemonBattle is Ownable {
      * @dev Check if battle ended
      * @param battleId uint256
      */
-    function _checkIfBattleEnded(uint256 battleId) private view returns (bool, address) {
-        Battle storage battle = battles[battleId];
-        Hand storage p1Hand = hands[battle.p1];
-        Hand storage p2Hand = hands[battle.p2];
+    function _checkIfBattleEnded(NewBattle memory battle) private view returns (bool, address) {
 
-        if (p1Hand.tempBattleInfo.hp <= 0) {
-            return (true, battle.p1);
-        } else if (p2Hand.tempBattleInfo.hp <= 0) {
-            return (true, battle.p2);
+        if (battle.playerOne.hand.battleCard.hp <= 0) {
+            return (true, battle.playerTwo.playerAddress);
+        } else if (battle.playerTwo.hand.battleCard.hp <= 0) {
+            return (true, battle.playerOne.playerAddress);
         }
+
         return (false, address(0));
     }
 
@@ -416,18 +422,17 @@ contract PepemonBattle is Ownable {
      * @dev Fight in the last turn.
      * @param battleId uint256
      */
-    function _fightInTurn(uint256 battleId) public {
+    function _fightInTurn(NewBattle memory battle) public {
         uint256 atkPower;
         uint256 defPower;
 
-        Battle storage battle = battles[battleId];
         Hand storage p1Hand = hands[battle.p1];
         Hand storage p2Hand = hands[battle.p2];
 
-        _calSupportOfHand(battle.p1);
-        _calSupportOfHand(battle.p2);
+        _calSupportOfHand(battle.playerOne.playerAddress);
+        _calSupportOfHand(battle.playerTwo.playerAddress);
 
-        if (p1Hand.role == Role.OFFENSE) {
+        if (battle.attacker == Attacker.PLAYER_ONE) {
             atkPower = p1Hand.tempBattleInfo.atk;
             defPower = p2Hand.tempBattleInfo.def;
             if (atkPower > defPower) {
@@ -782,5 +787,38 @@ contract PepemonBattle is Ownable {
         uint256 largestHandSize = playerOneHandSize > playerTwoHandSize ? playerOneHandSize : playerTwoHandSize;
 
         return smallestDeckSize / largestHandSize;
+    }
+
+    function _constructBattle(uint256 _deckOne, uint256 _deckTwo) public view returns (NewBattle memory _battle) {
+        PepemonCardDeck.Deck memory playerOneDeck = _deckContract.decks(_deckOne);
+        PepemonCardDeck.Deck memory playerTwoDeck = _deckContract.decks(_deckTwo);
+
+        Player memory playerOne = Player({
+        playerAddress : msg.sender,
+        deckId : _deckOne,
+        hand : Hand({
+        battleCard : _cardContract.getBattleCardById(playerOneDeck.battleCardId),
+        playerCardCount : playerOneDeck.supportCardCount
+        })
+        });
+
+        Player memory playerTwo = Player({
+        playerAddress : msg.sender,
+        deckId : _deckTwo,
+        hand : Hand({
+        battleCard : _cardContract.getBattleCardById(playerTwoDeck.battleCardId),
+        playerCardCount : playerTwoDeck.supportCardCount
+        })
+        });
+
+        NewBattle memory battle = NewBattle({
+        playerOne : playerOne,
+        playerTwo : playerTwo,
+        currentTurn : 1,
+        currentRound : 1,
+        attacker : Attacker.PLAYER_ONE
+        });
+
+        return battle;
     }
 }
