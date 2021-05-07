@@ -1,0 +1,28 @@
+{
+  "alice": {
+    "battle_card_id": 1,
+    "support_cards": [
+      {
+        "id": 1,
+        "amount": 5
+      },
+      {
+        "id": 2,
+        "amount": 5
+      }
+    ]
+  },
+  "bob": {
+    "battle_card_id": 6,
+    "support_cards": [
+      {
+        "id": 1,
+        "amount": 5
+      },
+      {
+        "id": 2,
+        "amount": 5
+      }
+    ]
+  }
+}
