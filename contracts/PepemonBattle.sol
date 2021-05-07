@@ -16,6 +16,44 @@ contract PepemonBattle is Ownable {
 
     enum Role {OFFENSE, DEFENSE, PENDING}
     enum TurnHalves {FIRST_HALF, SECOND_HALF}
+    enum Attacker {PLAYER_ONE, PLAYER_TWO}
+
+    struct NewBattle {
+        Player playerOne;
+        Player playerTwo;
+        uint256 currentTurn;
+        uint256 currentRound;
+        Attacker attacker;
+    }
+
+    struct Player {
+        address playerAddress;
+        uint256 deckId;
+        Hand hand;
+    }
+
+    struct Hand {
+        uint256 health;
+        uint256 battleCardId;
+        TempBattleInfo tempBattleInfo;
+        uint256 playedCardCount;
+        uint256[] supportCardIds;
+        uint256[] tempSupportInfoIds; // todo remove
+        //        mapping(uint256 => TempSupportInfo) tempSupportInfos; // todo remove
+        Role role; // todo don't need anymore
+        TempSupportInfo[] tempSupportInfos;
+    }
+
+    struct TempBattleInfo {
+        uint256 battleCardId; // todo remove
+        int256 hp; // todo remove
+        uint256 spd;
+        uint256 inte;
+        uint256 def;
+        uint256 atk;
+        uint256 sAtk;
+        uint256 sDef;
+    }
 
     struct Battle {
         address p1;
@@ -33,13 +71,9 @@ contract PepemonBattle is Ownable {
         TurnHalves turnHalves;
     }
 
-    struct Hand {
-        TempBattleInfo tempBattleInfo;
-        uint256 playedCardCount;
-        uint256[] supportCardIds;
-        uint256[] tempSupportInfoIds;
-        mapping(uint256 => TempSupportInfo) tempSupportInfos;
-        Role role;
+    struct TempSupportInfo {
+        uint256 supportCardId;
+        PepemonCard.EffectMany effectMany;
     }
 
     // struct Turn {
@@ -48,21 +82,16 @@ contract PepemonBattle is Ownable {
     //     TurnHalves turnHalves;
     // }
 
-    struct TempBattleInfo {
-        uint256 battleCardId;
-        int256 hp;
-        uint256 spd;
-        uint256 inte;
-        uint256 def;
-        uint256 atk;
-        uint256 sAtk;
-        uint256 sDef;
-    }
-
-    struct TempSupportInfo {
-        uint256 supportCardId;
-        PepemonCard.EffectMany effectMany;
-    }
+    //    struct TempBattleInfo {
+    //        uint256 battleCardId;
+    //        int256 hp;
+    //        uint256 spd;
+    //        uint256 inte;
+    //        uint256 def;
+    //        uint256 atk;
+    //        uint256 sAtk;
+    //        uint256 sDef;
+    //    }
 
     mapping(uint256 => Battle) public battles;
     mapping(address => Hand) public hands;
@@ -751,5 +780,66 @@ contract PepemonBattle is Ownable {
             );
         }
         return (isTriggered, num);
+    }
+
+    function _constructBattle(uint256 _deckOne, uint256 _deckTwo) public view returns (NewBattle memory _battle) {
+//        deck = _deckContract.decks(_deckOne);
+//        PepemonCardDeck.Deck memory playerTwoDeck = _deckContract.decks(_deckTwo);
+
+        PepemonCard.BattleCardStats memory playerOneBattleCard = _cardContract.getBattleCardById(
+            _deckContract.decks(_deckTwo)
+        );
+//
+//        Hand storage playerOneHand = Hand({
+//        health : playerOneBattleCard.hp,
+//        battleCardId : playerOneDeck.battleCardId,
+//        tempBattleInfo : TempBattleInfo({
+//        spd : playerOneBattleCard.spd,
+//        inte : playerOneBattleCard.inte,
+//        def : playerOneBattleCard.def,
+//        atk : playerOneBattleCard.atk,
+//        sAtk : playerOneBattleCard.sAtk,
+//        sDef : playerOneBattleCard.sDef
+//        }),
+//        playedCardCount : playerOneDeck.supportCardCount,
+//        supportCardIds : uint256[](playerOneDeck.supportCardCount)
+//        //        uint256[] tempSupportInfoIds;
+//        //        mapping(uint256 => TempSupportInfo) tempSupportInfos;
+//        //        Role role; // todo don't need anymore
+//
+//        });
+//
+//        Player storage playerOne = Player({
+//        playerAddress : msg.sender,
+//        deckId : _deckOne,
+//        hand : playerOneHand
+//        });
+
+        //        uint256 health;
+        //        uint256 battleCardId;
+        //        TempBattleInfo tempBattleInfo;
+        //        uint256 playedCardCount;
+        //        uint256[] supportCardIds;
+        //        uint256[] tempSupportInfoIds;
+        //        mapping(uint256 => TempSupportInfo) tempSupportInfos;
+
+//        Player memory playerTwo = Player({
+//        playerAddress : msg.sender,
+//        deckId : _deckTwo,
+//        hand : Hand({
+//        battleCard : _cardContract.getBattleCardById(playerTwoDeck.battleCardId),
+//        playerCardCount : playerTwoDeck.supportCardCount
+//        })
+//        });
+//
+//        NewBattle memory battle = NewBattle({
+//        playerOne : playerOne,
+//        playerTwo : playerTwo,
+//        currentTurn : 1,
+//        currentRound : 1,
+//        attacker : Attacker.PLAYER_ONE
+//        });
+
+//        return battle;
     }
 }
