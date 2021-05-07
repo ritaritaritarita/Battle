@@ -71,12 +71,14 @@ contract PepemonBattle is Ownable {
     uint8 private _refreshTurn = 5;
     uint256 private _randNonce = 0;
 
+    // todo oracle
     address private _cardAddress;
     address private _deckAddress;
 
     PepemonCard private _cardContract;
     PepemonCardDeck private _deckContract;
 
+    // todo card address needs to be changed to card oracle address
     constructor(address cardAddress, address deckAddress) public {
         _cardAddress = cardAddress;
         _deckAddress = deckAddress;
@@ -109,7 +111,7 @@ contract PepemonBattle is Ownable {
      * @param p2 address player2
      */
     function createBattle(address p1, address p2) public onlyOwner {
-        require(p1 != p2, "PepemonBattle: No Battle yourself");
+        require(p1 != p2, "PepemonBattle: Cannot battle yourself");
         battles[_nextBattleId].p1 = p1;
         battles[_nextBattleId].p2 = p2;
         battles[_nextBattleId].winner = address(0);
@@ -173,7 +175,7 @@ contract PepemonBattle is Ownable {
 
                 break;
             }
-            // If the currnet half is first half, go over second half
+            // If the current half is first half, go over second half
             // or go over next turn.
             if (battle.turnHalves == TurnHalves.FIRST_HALF) {
                 battle.turnHalves = TurnHalves.SECOND_HALF;
@@ -190,6 +192,7 @@ contract PepemonBattle is Ownable {
                 }
                 _makeNewTurn(battleId);
             }
+            break;
         }
     }
 
@@ -216,10 +219,14 @@ contract PepemonBattle is Ownable {
         uint256 p1PlayedCardCount = (isFirstTurn ? 0 : p1Hand.playedCardCount);
         uint256 p2PlayedCardCount = (isFirstTurn ? 0 : p2Hand.playedCardCount);
 
-        (uint256 p1BattleCardId, ) = _deckContract.decks(battle.p1DeckId);
-        (uint256 p2BattleCardId, ) = _deckContract.decks(battle.p2DeckId);
-        // Copy battle card stats to temp battle info.
+        // todo the battle card does not change between rounds so we can persist this somewhere
+        (uint256 p1BattleCardId,) = _deckContract.decks(battle.p1DeckId);
+        (uint256 p2BattleCardId,) = _deckContract.decks(battle.p2DeckId);
+
+        //        // Copy battle card stats to temp battle info.
         TempBattleInfo memory p1TempBattleInfo;
+
+        // We can store this in the same place as line 220
         p1TempBattleInfo.battleCardId = _cardContract.getBattleCardById(p1BattleCardId).battleCardId;
         p1TempBattleInfo.spd = _cardContract.getBattleCardById(p1BattleCardId).spd;
         p1TempBattleInfo.inte = _cardContract.getBattleCardById(p1BattleCardId).inte;
@@ -281,8 +288,8 @@ contract PepemonBattle is Ownable {
      * @param tempBattleInfo TempBattleInfo
      */
     function _calTempSupportOfTurn(address handAddr, TempBattleInfo memory tempBattleInfo)
-        private
-        returns (TempBattleInfo memory)
+    private
+    returns (TempBattleInfo memory)
     {
         Hand storage hand = hands[handAddr];
         uint256 i = 0;
@@ -374,6 +381,7 @@ contract PepemonBattle is Ownable {
      * @param modulus uint256
      */
     function _randMod(uint256 modulus) private returns (uint256) {
+        // todo needs to connect to chain link
         _randNonce++;
         return uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, _randNonce))) % modulus;
     }
@@ -515,7 +523,7 @@ contract PepemonBattle is Ownable {
                     if (card.effectMany.power != 0) {
                         // Add card info to temp support info ids.
                         hand.tempSupportInfoIds.push(id);
-                        hand.tempSupportInfos[id] = TempSupportInfo({supportCardId: id, effectMany: card.effectMany});
+                        hand.tempSupportInfos[id] = TempSupportInfo({supportCardId : id, effectMany : card.effectMany});
                     }
                 } else {
                     // Other card type is ignored.
@@ -601,7 +609,7 @@ contract PepemonBattle is Ownable {
                     if (card.effectMany.power != 0) {
                         // Add card info to temp support info ids.
                         hand.tempSupportInfoIds.push(id);
-                        hand.tempSupportInfos[id] = TempSupportInfo({supportCardId: id, effectMany: card.effectMany});
+                        hand.tempSupportInfos[id] = TempSupportInfo({supportCardId : id, effectMany : card.effectMany});
                     }
                 } else {
                     // Other card type is ignored.
@@ -642,7 +650,7 @@ contract PepemonBattle is Ownable {
             isTriggered = true;
             for (uint256 i = 0; i < hand.supportCardIds.length; i++) {
                 PepemonCard.SupportCardType supportCardType =
-                    _cardContract.getSupportCardTypeById(hand.supportCardIds[i]);
+                _cardContract.getSupportCardTypeById(hand.supportCardIds[i]);
                 if (supportCardType == PepemonCard.SupportCardType.DEFENSE) {
                     isTriggered = false;
                     break;
@@ -736,10 +744,10 @@ contract PepemonBattle is Ownable {
         } else if (reqCode == 11) {
             // The current HP is less than 50% of max HP.
             isTriggered = (
-                hand.tempBattleInfo.hp * 2 <=
-                    int256(_cardContract.getBattleCardById(hand.tempBattleInfo.battleCardId).hp)
-                    ? true
-                    : false
+            hand.tempBattleInfo.hp * 2 <=
+            int256(_cardContract.getBattleCardById(hand.tempBattleInfo.battleCardId).hp)
+            ? true
+            : false
             );
         }
         return (isTriggered, num);

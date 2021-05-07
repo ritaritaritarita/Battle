@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.0;
-pragma experimental ABIEncoderV2;
+//pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
@@ -44,7 +44,7 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
     PepemonCard cardContract;
 
     mapping(uint256 => Deck) public decks;
-    mapping(address => uint256) public playerToDecks;
+    mapping(address => uint256) public playerToDecks; // todo players can have multiple decks
 
     constructor() ERC721("Pepedeck", "Pepedeck") {
         nextDeckId = 1;

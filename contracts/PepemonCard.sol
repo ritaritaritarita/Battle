@@ -5,6 +5,9 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+/**
+This contract acts as the oracle, it contains battling information for both the Pepemon Battle and Support cards
+**/
 contract PepemonCard is Ownable {
     enum BattleCardType {PLANT, FIRE}
 
