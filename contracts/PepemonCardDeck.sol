@@ -44,7 +44,9 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
     PepemonCard cardContract;
 
     mapping(uint256 => Deck) public decks;
-    mapping(address => uint256) public playerToDecks; // todo players can have multiple decks
+    mapping(address => uint256[]) public playerToDecks;
+
+    // mapping(address => uint256) public playerToDecks; // todo players can have multiple decks
 
     constructor() ERC721("Pepedeck", "Pepedeck") {
         nextDeckId = 1;
@@ -94,7 +96,7 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
 
     function createDeck() public {
         _safeMint(msg.sender, nextDeckId);
-        playerToDecks[msg.sender] = nextDeckId;
+        playerToDecks[msg.sender].push(nextDeckId);
         nextDeckId = nextDeckId.add(1);
     }
 
@@ -230,6 +232,10 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
 
     function getCountOfCardTypeInDeck(uint256 _deckId, uint256 _cardTypeId) public view returns (uint256) {
         return decks[_deckId].supportCardTypes[_cardTypeId].count;
+    }
+
+    function getSupportCardCountInDeck(uint256 deckId) public view returns (uint256) {
+        return decks[deckId].supportCardCount;
     }
 
     /**
