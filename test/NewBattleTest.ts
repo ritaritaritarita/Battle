@@ -1,89 +1,18 @@
 import { getProvider } from './helpers/contract';
-import { PepemonBattle, PepemonCard, PepemonCardDeck } from '../typechain';
+import { PepemonBattle, PepemonCard, PepemonCardDeck, RandomNumberGenerator } from '../typechain';
 import { PepemonFactory } from "../typechain/PepemonFactory";
-
 
 import DeckArtifact from '../artifacts/contracts/PepemonCardDeck.sol/PepemonCardDeck.json';
 import CardArtifact from '../artifacts/contracts/PepemonCard.sol/PepemonCard.json';
 import BattleArtifact from '../artifacts/contracts/PepemonBattle.sol/PepemonBattle.json';
 import FactoryArtifact from '../contracts/abi/PepemonFactory.json';
+import RandomNumberGeneratorArtifact from '../artifacts/contracts/RandomNumberGenerator.sol/RandomNumberGenerator.json';
+
 import { deployContract, deployMockContract, MockContract } from 'ethereum-waffle';
 import { BigNumber } from "ethers";
 
 const [alice, bob] = getProvider().getWallets();
 
-const battleCardData = [
-	{
-		battleCardId: 1,
-		battleCardType: 0,
-		name: 'Pepesaur',
-		hp: 450,
-		spd: 10,
-		inte: 5,
-		def: 10,
-		atk: 10,
-		sAtk: 20,
-		sDef: 20
-	},
-	{
-		battleCardId: 2,
-		battleCardType: 0,
-		name: 'Pepemander',
-		hp: 300,
-		spd: 20,
-		inte: 6,
-		def: 8,
-		atk: 12,
-		sAtk: 24,
-		sDef: 16
-	}
-];
-const supportCardData = [
-	{
-		supportCardId: 1,
-		supportCardType: 0,
-		name: 'Fast Attack',
-		effectOnes: [
-			{
-				power: 2,
-				effectTo: 0,
-				effectFor: 0,
-				reqCode: 0
-			}
-		],
-		effectMany: {
-			power: 0,
-			numTurns: 0,
-			effectTo: 0,
-			effectFor: 0,
-			reqCode: 0
-		},
-		unstackable: true,
-		unresettable: true
-	},
-	{
-		supportCardId: 2,
-		supportCardType: 0,
-		name: 'Mid Attack',
-		effectOnes: [
-			{
-				power: 3,
-				effectTo: 0,
-				effectFor: 0,
-				reqCode: 0
-			}
-		],
-		effectMany: {
-			power: 0,
-			numTurns: 0,
-			effectTo: 0,
-			effectFor: 0,
-			reqCode: 0
-		},
-		unstackable: true,
-		unresettable: true
-	}
-];
 const EffectTo = ['ATTACK', 'STRONG_ATTACK', 'DEFENSE', 'STRONG_DEFENSE', 'SPEED', 'INTELLIGENCE'];
 const EffectFor = ['ME', 'ENEMY'];
 const Attacker = ['PLAYER_ONE', 'PLAYER_TWO'];
@@ -93,29 +22,26 @@ describe('::Battle', async () => {
 	let battleContract: PepemonBattle;
 	let pepemonDeckOracle: PepemonCardDeck | MockContract;
 	let pepemonCardOracle: PepemonCard | MockContract;
-
-	let battleCard: PepemonFactory | MockContract;
-	let supportCard: PepemonFactory | MockContract;
+	let randNrGen: RandomNumberGenerator | MockContract;
 
 	beforeEach(async () => {
 		pepemonDeckOracle = await deployMockContract(alice, DeckArtifact.abi);
 		pepemonCardOracle = await deployMockContract(alice, CardArtifact.abi);
-		battleCard = await deployMockContract(alice, FactoryArtifact);
-		supportCard = await deployMockContract(alice, FactoryArtifact);
+		randNrGen = await deployMockContract(alice, RandomNumberGeneratorArtifact.abi);
 
 		battleContract = (await deployContract(
 			alice,
 			BattleArtifact,
 			[
 				pepemonCardOracle.address,
-				pepemonDeckOracle.address
+				pepemonDeckOracle.address,
+				randNrGen.address
 			]
 		)) as PepemonBattle;
 
-
 		await setupCardOracle();
-
 		await setupDeckOracle();
+		await setupRandOracle();
 	});
 
 	const setupCardOracle = async () => {
@@ -123,7 +49,8 @@ describe('::Battle', async () => {
 			battleCardId: BigNumber.from(1),
 			battleCardType: 0,
 			name: "Pepesaur",
-			hp: BigNumber.from(450),
+			hp: BigNumber.from(50),
+			// hp: BigNumber.from(450),
 			spd: BigNumber.from(10),
 			inte: BigNumber.from(5),
 			def: BigNumber.from(10),
@@ -136,7 +63,8 @@ describe('::Battle', async () => {
 			battleCardId: BigNumber.from(2),
 			battleCardType: 0,
 			name: "Pepemander",
-			hp: BigNumber.from(300),
+			hp: BigNumber.from(30),
+			// hp: BigNumber.from(300),
 			spd: BigNumber.from(20),
 			inte: BigNumber.from(6),
 			def: BigNumber.from(8),
@@ -234,6 +162,10 @@ describe('::Battle', async () => {
 		await pepemonDeckOracle.mock.getSupportCardCountInDeck.withArgs(2).returns(45);
 	};
 
+	const setupRandOracle = async () => {
+		await randNrGen.mock.getRandomNumber.returns(10);
+	};
+
 	const logBattle = (battle: any) => {
 		console.log('Battle:');
 		console.log('-battleId:', battle.battleId.toString());
@@ -297,6 +229,18 @@ describe('::Battle', async () => {
 		console.log('------reqCode:', tempSupportInfo.effectMany.reqCode.toString());
 	};
 
+	const logTurn = (turn: any) => {
+		console.log('/********************************************|');
+		console.log(`|                    Turn ${turn}                  |`);
+		console.log('|___________________________________________*/');
+	};
+
+	const logTurnHalves = (turnHalves: any) => {
+		console.log('/*********************|');
+		console.log(`|        Half ${turnHalves}       |`);
+		console.log('|____________________*/');
+	};
+
 	describe('#Battling', async () => {
 		let battle: any;
 
@@ -304,47 +248,83 @@ describe('::Battle', async () => {
 			await battleContract.createBattle(alice.address, 1, bob.address, 2);
 			battle = await battleContract.battles(1);
 		});
-		it('should create battle', async () => {
-			logBattle(battle);
-		});
-		it('should go for new turn', async () => {
-			battle = await battleContract.goForNewTurn(battle);
-			logBattle(battle);
-		});
-		it('should resolve attacker', async () => {
-			battle = await battleContract.goForNewTurn(battle);
-			battle = await battleContract.resolveAttacker(battle);
-			logBattle(battle);
-		});
-		it('should calculate power boost', async () => {
+		it('should fight', async () => {
 			let result: any;
 
+			console.log('--------------------- Create battle --------------------');
+			logBattle(battle);
+			// Turn 1
+			logTurn(1);
+			console.log('--------------------- Go for new turn --------------------');
 			battle = await battleContract.goForNewTurn(battle);
-			// player2 is attacker and player1 is defender
+			logBattle(battle);
+
+			logTurnHalves(1);
+			console.log('--------------------- Resolve attacker --------------------');
 			battle = await battleContract.resolveAttacker(battle);
 			logBattle(battle);
-			result = await battleContract.calPowerBoost(battle.player2.hand, battle.player1.hand);
-			console.log('-attacker hand (player 2):');
-			logHand(result[0]);
-			console.log('------------------------------------------');
-			console.log('-defender hand (player 1):');
-			logHand(result[1]);
+			console.log('--------------------- Fight --------------------');
+			battle = await battleContract.fight(battle);
+			logBattle(battle);
+			console.log('--------------------- Check if battle ended --------------------');
+			result = await battleContract.checkIfBattleEnded(battle);
+			console.log('isEnded:', result[0]);
+			console.log('winner address:', result[1]);
+			console.log('--------------------- Go to second half --------------------');
+			battle = await battleContract.resolveHalves(battle);
+			logBattle(battle);
+
+			logTurnHalves(2);
+			console.log('--------------------- Resolve attacker --------------------');
+			battle = await battleContract.resolveAttacker(battle);
+			logBattle(battle);
+			console.log('--------------------- Fight --------------------');
+			battle = await battleContract.fight(battle);
+			logBattle(battle);
+			console.log('--------------------- Check if battle ended --------------------');
+			result = await battleContract.checkIfBattleEnded(battle);
+			console.log('isEnded:', result[0]);
+			console.log('winner address:', result[1]);
+			console.log('--------------------- Go for turn 2 --------------------');
+			battle = await battleContract.resolveHalves(battle);
+			logBattle(battle);
+			// Turn 2
+			logTurn(2);
+			logTurnHalves(1);
+			console.log('--------------------- Resolve attacker --------------------');
+			battle = await battleContract.resolveAttacker(battle);
+			logBattle(battle);
+			console.log('--------------------- Fight --------------------');
+			battle = await battleContract.fight(battle);
+			logBattle(battle);
+			console.log('--------------------- Check if battle ended --------------------');
+			result = await battleContract.checkIfBattleEnded(battle);
+			console.log('isEnded:', result[0]);
+			console.log('winner address:', result[1]);
+			console.log('--------------------- Go to second half --------------------');
+			battle = await battleContract.resolveHalves(battle);
+			logBattle(battle);
+
+			logTurnHalves(2);
+			console.log('--------------------- Resolve attacker --------------------');
+			battle = await battleContract.resolveAttacker(battle);
+			logBattle(battle);
+			console.log('--------------------- Fight --------------------');
+			battle = await battleContract.fight(battle);
+			logBattle(battle);
+			console.log('--------------------- Check if battle ended --------------------');
+			result = await battleContract.checkIfBattleEnded(battle);
+			console.log('isEnded:', result[0]);
+			console.log('winner address:', result[1]);
+			console.log('--------------------- Go for turn 3 --------------------');
+			battle = await battleContract.resolveHalves(battle);
+			logBattle(battle);
 		});
-		describe('##requirement code', async () => {
-			beforeEach(async () => {
-				battle = await battleContract.goForNewTurn(battle);
-				// player2 is attacker and player1 is defender
-				battle = await battleContract.resolveAttacker(battle);
-				logBattle(battle);
-				console.log('------------------------------------------');
-			});
-			it('should calculate requirement code 0', async () => {
-				let result: any;
-				console.log('-Code 0');
-				result = await battleContract.checkReqCode(battle.player2.hand, battle.player1.hand, 0, true);
-				console.log('isTriggered', result[0]);
-				console.log('num:', result[1].toString());
-			});
+		it('should go for battle', async () => {
+			console.log('--------------------- Create battle --------------------');
+			logBattle(battle);
+			battle = await battleContract.goForBattle(battle);
+			logBattle(battle);
 		});
 	});
 });
