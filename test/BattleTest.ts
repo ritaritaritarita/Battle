@@ -1,352 +1,325 @@
-import { deployDeckContract, deployBattleContract, getProvider } from './helpers/contract';
-import { PepemonCard, PepemonCardDeck, PepemonBattle } from '../typechain';
+import { getProvider } from './helpers/contract';
+import { PepemonBattle, PepemonCard, PepemonCardDeck, RandomNumberGenerator } from '../typechain';
 import { PepemonFactory } from "../typechain/PepemonFactory";
-
 
 import DeckArtifact from '../artifacts/contracts/PepemonCardDeck.sol/PepemonCardDeck.json';
 import CardArtifact from '../artifacts/contracts/PepemonCard.sol/PepemonCard.json';
 import BattleArtifact from '../artifacts/contracts/PepemonBattle.sol/PepemonBattle.json';
 import FactoryArtifact from '../contracts/abi/PepemonFactory.json';
+import RNGArtifact from '../artifacts/contracts/RandomNumberGenerator.sol/RandomNumberGenerator.json';
 
-import { expect } from 'chai';
 import { deployContract, deployMockContract, MockContract } from 'ethereum-waffle';
-import { BigNumber } from 'ethers';
+import { BigNumber } from "ethers";
 
 const [alice, bob] = getProvider().getWallets();
 
-const roles = ['OFFENSE', 'DEFENSE', 'PENDING'];
-const battleCardData = [
-  {
-    battleCardId: 1,
-    battleCardType: 0,
-    name: 'Pepesaur',
-    hp: 450,
-    spd: 10,
-    inte: 5,
-    def: 10,
-    atk: 10,
-    sAtk: 20,
-    sDef: 20
-  },
-  {
-    battleCardId: 2,
-    battleCardType: 0,
-    name: 'Pepemander',
-    hp: 300,
-    spd: 20,
-    inte: 6,
-    def: 8,
-    atk: 12,
-    sAtk: 24,
-    sDef: 16
-  }
-];
-const supportCardData = [
-  {
-    supportCardId: 1,
-    supportCardType: 0,
-    name: 'Fast Attack',
-    effectOnes: [
-      {
-        power: 2,
-        effectTo: 0,
-        effectFor: 0,
-        reqCode: 0
-      }
-    ],
-    effectMany: {
-      power: 0,
-      numTurns: 0,
-      effectTo: 0,
-      effectFor: 0,
-      reqCode: 0
-    },
-    unstackable: true,
-    unresettable: true
-  },
-  {
-    supportCardId: 2,
-    supportCardType: 0,
-    name: 'Mid Attack',
-    effectOnes: [
-      {
-        power: 3,
-        effectTo: 0,
-        effectFor: 0,
-        reqCode: 0
-      }
-    ],
-    effectMany: {
-      power: 0,
-      numTurns: 0,
-      effectTo: 0,
-      effectFor: 0,
-      reqCode: 0
-    },
-    unstackable: true,
-    unresettable: true
-  }
-];
+const EffectTo = ['ATTACK', 'STRONG_ATTACK', 'DEFENSE', 'STRONG_DEFENSE', 'SPEED', 'INTELLIGENCE'];
+const EffectFor = ['ME', 'ENEMY'];
+const Attacker = ['PLAYER_ONE', 'PLAYER_TWO'];
+const TurnHalves = ['FIRST_HALF', 'SECOND_HALF'];
 
 describe('::Battle', async () => {
-  let battle: PepemonBattle;
-  let bobSignedBattle: PepemonBattle;
-  let deck: PepemonCardDeck;
-  let bobSignedDeck: PepemonCardDeck;
-  let card: PepemonCard;
-  let battleCard: PepemonFactory | MockContract;
-  let supportCard: PepemonFactory | MockContract;
+	let battleContract: PepemonBattle;
+	let pepemonDeckOracle: PepemonCardDeck | MockContract;
+	let pepemonCardOracle: PepemonCard | MockContract;
+	let rng: RandomNumberGenerator | MockContract;
 
-  const setupCard = async () => {
-    await card.addBattleCard({
-      battleCardId: 1,
-      battleCardType: 0,
-      name: 'Pepesaur',
-      hp: 450,
-      spd: 10,
-      inte: 5,
-      def: 10,
-      atk: 10,
-      sAtk: 20,
-      sDef: 20
-    });
-    await card.addBattleCard({
-      battleCardId: 2,
-      battleCardType: 0,
-      name: 'Pepemander',
-      hp: 300,
-      spd: 20,
-      inte: 6,
-      def: 8,
-      atk: 12,
-      sAtk: 24,
-      sDef: 16
-    });
-    await card.addSupportCard({
-      supportCardId: 1,
-      supportCardType: 0,
-      name: 'Fast Attack',
-      effectOnes: [
-        {
-          power: 2,
-          effectTo: 0,
-          effectFor: 0,
-          reqCode: 0
-        }
-      ],
-      effectMany: {
-        power: 0,
-        numTurns: 0,
-        effectTo: 0,
-        effectFor: 0,
-        reqCode: 0
-      },
-      unstackable: true,
-      unresettable: true
-    });
-    await card.addSupportCard({
-      supportCardId: 2,
-      supportCardType: 0,
-      name: 'Mid Attack',
-      effectOnes: [
-        {
-          power: 3,
-          effectTo: 0,
-          effectFor: 0,
-          reqCode: 0
-        }
-      ],
-      effectMany: {
-        power: 0,
-        numTurns: 0,
-        effectTo: 0,
-        effectFor: 0,
-        reqCode: 0
-      },
-      unstackable: true,
-      unresettable: true
-    });
-    await card.addSupportCard({
-      supportCardId: 3,
-      supportCardType: 0,
-      name: 'Haymaker Strike',
-      effectOnes: [
-        {
-          power: 4,
-          effectTo: 0,
-          effectFor: 0,
-          reqCode: 0
-        }
-      ],
-      effectMany: {
-        power: 0,
-        numTurns: 0,
-        effectTo: 0,
-        effectFor: 0,
-        reqCode: 0
-      },
-      unstackable: true,
-      unresettable: true
-    });
-  };
+	beforeEach(async () => {
+		pepemonDeckOracle = await deployMockContract(alice, DeckArtifact.abi);
+		pepemonCardOracle = await deployMockContract(alice, CardArtifact.abi);
+		rng = await deployMockContract(alice, RNGArtifact.abi);
 
-  const setupDeck = async () => {
-    await deck.createDeck();
-    await deck.setBattleCardAddress(battleCard.address);
-    await deck.setSupportCardAddress(supportCard.address);
-    await bobSignedDeck.createDeck();
-    // Battle card
-    await battleCard.mock.balanceOf.withArgs(alice.address, 1).returns(1);
-    await battleCard.mock.balanceOf.withArgs(bob.address, 2).returns(1);
-    await battleCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 1, 1, '0x').returns();
-    await battleCard.mock.safeTransferFrom.withArgs(bob.address, bobSignedDeck.address, 2, 1, '0x').returns();
+		battleContract = (await deployContract(
+			alice,
+			BattleArtifact,
+			[
+				pepemonCardOracle.address,
+				pepemonDeckOracle.address,
+				rng.address
+			]
+		)) as PepemonBattle;
 
-    await deck.addBattleCardToDeck(1, 1);
-    await bobSignedDeck.addBattleCardToDeck(2, 2);
-    // Support Card
-    await supportCard.mock.balanceOf.withArgs(alice.address, 1).returns(30);
-    await supportCard.mock.balanceOf.withArgs(alice.address, 2).returns(30);
-    await supportCard.mock.balanceOf.withArgs(bob.address, 1).returns(25);
-    await supportCard.mock.balanceOf.withArgs(bob.address, 2).returns(30);
-    await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 1, 30, '0x').returns();
-    await supportCard.mock.safeTransferFrom.withArgs(alice.address, deck.address, 2, 30, '0x').returns();
-    await supportCard.mock.safeTransferFrom.withArgs(bob.address, bobSignedDeck.address, 1, 25, '0x').returns();
-    await supportCard.mock.safeTransferFrom.withArgs(bob.address, bobSignedDeck.address, 2, 30, '0x').returns();
+		await setupCardOracle();
+		await setupDeckOracle();
+		await setupRNGOracle();
+	});
 
-    await deck.addSupportCardsToDeck(1, [
-      {
-        supportCardId: 1,
-        amount: 30
-      },
-      {
-        supportCardId: 2,
-        amount: 30
-      }
-    ]);
-    await bobSignedDeck.addSupportCardsToDeck(2, [
-      {
-        supportCardId: 1,
-        amount: 25
-      },
-      {
-        supportCardId: 2,
-        amount: 30
-      }
-    ]);
-  };
+	const setupCardOracle = async () => {
+		await pepemonCardOracle.mock.getBattleCardById.withArgs(1).returns({
+			battleCardId: BigNumber.from(1),
+			battleCardType: 0,
+			name: "Pepesaur",
+			hp: BigNumber.from(50),
+			// hp: BigNumber.from(450),
+			spd: BigNumber.from(10),
+			inte: BigNumber.from(5),
+			def: BigNumber.from(10),
+			atk: BigNumber.from(10),
+			sAtk: BigNumber.from(20),
+			sDef: BigNumber.from(20)
+		});
 
-  const logPlayerSupportCards = async (battleId: any) => {
-    let str = '';
-    await battle.getBattleP1SupportCards(battleId).then((p1SupportCards: any) => {
-      p1SupportCards.forEach((item: any) => {
-        str += item.toString() + ' ';
-      });
-      console.log('Player 1 supportCards:', str);
-    });
-    str = '';
-    await battle.getBattleP2SupportCards(battleId).then((p2SupportCards: any) => {
-      p2SupportCards.forEach((item: any) => {
-        str += item.toString() + ' ';
-      });
-      console.log('Player 2 supportCards:', str);
-    });
-  };
+		await pepemonCardOracle.mock.getBattleCardById.withArgs(2).returns({
+			battleCardId: BigNumber.from(2),
+			battleCardType: 0,
+			name: "Pepemander",
+			hp: BigNumber.from(30),
+			// hp: BigNumber.from(300),
+			spd: BigNumber.from(20),
+			inte: BigNumber.from(6),
+			def: BigNumber.from(8),
+			atk: BigNumber.from(12),
+			sAtk: BigNumber.from(24),
+			sDef: BigNumber.from(16)
+		});
 
-  const logPlayerHands = async (p1Addr: any, p2Addr: any) => {
-    await battle.hands(p1Addr).then((hand: any) => {
-      console.log('Player 1 hand:', hand);
-    });
-    await battle.hands(p2Addr).then((hand: any) => {
-      console.log('Player 2 hand:', hand);
-    });
-  }
+		await pepemonCardOracle.mock.getSupportCardById.withArgs(1).returns({
+			supportCardId: BigNumber.from(1),
+			supportCardType: 0,
+			name: "Fast Attack",
+			effectOnes: [{
+				power: BigNumber.from(2),
+				effectTo: 0,
+				effectFor: 0,
+				reqCode: BigNumber.from(0)
+			}],
+			effectMany: {
+				power: BigNumber.from(0),
+				numTurns: BigNumber.from(0),
+				effectTo: 0,
+				effectFor: 0,
+				reqCode: BigNumber.from(0)
+			},
+			unstackable: true,
+			unresettable: true
+		});
 
-  const logBattle = async (battleId: any) => {
-    await battle.battles(battleId).then((battle: any) => {
-      console.log('Battle:', battle);
-    });
-  };
+		await pepemonCardOracle.mock.getSupportCardById.withArgs(2).returns({
+			supportCardId: BigNumber.from(2),
+			supportCardType: 0,
+			name: "Mid Attack",
+			effectOnes: [{
+				power: BigNumber.from(3),
+				effectTo: 0,
+				effectFor: 0,
+				reqCode: BigNumber.from(0)
+			}],
+			effectMany: {
+				power: BigNumber.from(0),
+				numTurns: BigNumber.from(0),
+				effectTo: 0,
+				effectFor: 0,
+				reqCode: BigNumber.from(0)
+			},
+			unstackable: true,
+			unresettable: true
+		});
 
-  beforeEach(async () => {
-    deck = (await deployContract(alice, DeckArtifact)) as PepemonCardDeck;
-    bobSignedDeck = deck.connect(bob);
-    card = (await deployContract(alice, CardArtifact)) as PepemonCard;
-    battle = (await deployContract(alice, BattleArtifact, [card.address, deck.address])) as PepemonBattle;
-    bobSignedBattle = battle.connect(bob);
-    battleCard = await deployMockContract(alice, FactoryArtifact);
-    supportCard = await deployMockContract(alice, FactoryArtifact);
+		await pepemonCardOracle.mock.getSupportCardById.withArgs(3).returns({
+			supportCardId: BigNumber.from(3),
+			supportCardType: 0,
+			name: "Haymaker Strike",
+			effectOnes: [{
+				power: BigNumber.from(4),
+				effectTo: 0,
+				effectFor: 0,
+				reqCode: BigNumber.from(0)
+			}],
+			effectMany: {
+				power: BigNumber.from(0),
+				numTurns: BigNumber.from(0),
+				effectTo: 0,
+				effectFor: 0,
+				reqCode: BigNumber.from(0)
+			},
+			unstackable: true,
+			unresettable: true
+		});
+	};
 
-    // card
-    await setupCard();
-    // deck
-    await setupDeck();
-  });
+	const setupDeckOracle = async () => {
+		// Deck 1
+		await pepemonDeckOracle.mock.shuffleDeck.withArgs(1).returns([
+			1, 3, 1, 2, 3, 1, 3, 2, 1, 3, 1, 2, 3, 1, 3, 2, 1, 3, 1, 2,
+			1, 3, 1, 2, 3, 1, 3, 2, 1, 3, 1, 2, 3, 1, 3, 2, 1, 3, 1, 2,
+			1, 3, 1, 2, 3, 1, 3, 2, 1, 3
+		]);
+		await pepemonDeckOracle.mock.decks.withArgs(1).returns(
+			BigNumber.from(1),
+			BigNumber.from(50)
+		);
+		await pepemonDeckOracle.mock.getSupportCardCountInDeck.withArgs(1).returns(50);
+		// Deck 2
+		await pepemonDeckOracle.mock.shuffleDeck.withArgs(2).returns([
+			3, 1, 2, 3, 1, 3, 1, 2, 3, 1, 3, 1, 2, 3, 1, 3, 1, 2, 3, 1,
+			3, 1, 2, 3, 1, 3, 1, 2, 3, 1, 3, 1, 2, 3, 1, 3, 1, 2, 3, 1,
+			3, 1, 2, 3, 1
+		]);
+		await pepemonDeckOracle.mock.decks.withArgs(2).returns(
+			BigNumber.from(2),
+			BigNumber.from(45)
+		);
+		await pepemonDeckOracle.mock.getSupportCardCountInDeck.withArgs(2).returns(45);
+	};
 
-  describe('#createBattle', async () => {
-    it('Should create battle', async () => {
-      await battle.createBattle(alice.address, bob.address);
-      await battle.battles(1).then((battle: any) => {
-        expect(battle['battleId']).to.eq(1);
-        expect(battle['p1']).to.eq(alice.address);
-        expect(battle['p2']).to.eq(bob.address);
-      });
-    });
-    describe('reverts if', async () => {
-      it('non-admin create battle', async () => {
-        await expect(bobSignedBattle.createBattle(alice.address, bob.address)).to.revertedWith('revert Ownable: caller is not the owner');
-      });
-      it('battle yourself', async () => {
-        await expect(battle.createBattle(alice.address, alice.address)).to.revertedWith('revert PepemonBattle: No Battle yourself');
-      });
-    });
-  });
+	const setupRNGOracle = async () => {
+		await rng.mock.getRandomNumber.returns(10);
+	};
 
-  describe('#fight', async () => {
-    beforeEach(async () => {
-      await battle.createBattle(alice.address, bob.address);
-    });
-    it('Should fight', async () => {
-      // Shuffle each player's decks
-      console.log('-Shuffle');
-      await battle._shufflePlayerDeck(1);
-      await logPlayerSupportCards(1);
-      // Make the first turn
-      console.log('-Make new turn');
-      await battle._makeNewTurn(1);
-      await logPlayerHands(alice.address, bob.address);
-      // Resolve role
-      console.log('-Resolve role');
-      await battle._resolveRole(1);
-      await battle.hands(alice.address).then((hand: any) => {
-        console.log('Player 1 role:', roles[hand.role]);
-      });
-      await battle.hands(bob.address).then((hand: any) => {
-        console.log('Player 2 role:', roles[hand.role]);
-      });
-      // Fight
-      await battle._fightInTurn(1);
-      await logBattle(1);
+	const logBattle = (battle: any) => {
+		console.log('Battle:');
+		console.log('-battleId:', battle.battleId.toString());
+		console.log('-player1:');
+		logPlayer(battle.player1);
+		console.log('-player2:');
+		logPlayer(battle.player2);
+		console.log('-currentTurn:', battle.currentTurn.toString());
+		console.log('-attacker:', Attacker[battle.attacker]);
+		console.log('-turnHalves:', TurnHalves[battle.turnHalves]);
+	};
 
-    });
-    // describe('##shuffleDeck', async () => {
-    //   it('Should shuffle players\' decks', async () => {
-    //     // Shuffle each player's decks
-    //     await battle._shufflePlayerDeck(1);
-    //     await logBattlePlayerSupportCards(1);
-    //   });
-    // });
-    // describe('##makeNewTurn', async () => {
-    //   beforeEach(async () => {
-    //     await battle._shufflePlayerDeck(1);
-    //     await logBattlePlayerSupportCards(1);
-    //   });
-    //   it('Should make new turn', async () => {
-    //     // Make the first turn
-    //     await battle._makeNewTurn(1);
-    //     await battle.hands(alice.address).then((hand: any) => {
-    //       console.log(hand);
-    //     });
-    //   });
-    // });
-  });
+	const logPlayer = (player: any) => {
+		let str = '';
+
+		console.log('--address:', player.playerAddr);
+		console.log('--deckId:', player.deckId.toString());
+		logHand(player.hand);
+		for (let i = 0; i < 60; i++) {
+			if (player.totalSupportCardIds[i].toNumber() == 0) {
+				break;
+			}
+			str += `${player.totalSupportCardIds[i].toString()}, `;
+		}
+		console.log('--totalSupportCardIds:', str);
+		console.log('--playedCardCount:', player.playedCardCount.toString());
+	};
+
+	const logHand = (hand: any) => {
+		let str = '';
+
+		console.log('--hand:');
+		console.log('---health:', hand.health.toString());
+		console.log('---battleCardId:', hand.battleCardId.toString());
+		console.log('---tempBattleInfo:');
+		console.log('----spd:', hand.tempBattleInfo.spd.toString());
+		console.log('----inte:', hand.tempBattleInfo.inte.toString());
+		console.log('----def:', hand.tempBattleInfo.def.toString());
+		console.log('----atk:', hand.tempBattleInfo.atk.toString());
+		console.log('----sAtk:', hand.tempBattleInfo.sAtk.toString());
+		console.log('----sDef:', hand.tempBattleInfo.sDef.toString());
+		for (let i = 0; i < hand.tempBattleInfo.inte; i++) {
+			str += `${hand.supportCardIds[i]}, `;
+		}
+		console.log('---supportCardIds:', str);
+		console.log('---tempSupportInfosCount:', hand.tempSupportInfosCount.toString());
+		console.log('---tempSupportInfos:');
+		for (let i = 0; i < hand.tempSupportInfosCount; i++) {
+			logTempSupportInfo(hand.tempSupportInfos[i]);
+		}
+	};
+
+	const logTempSupportInfo = (tempSupportInfo: any) => {
+		console.log('----tempSupportInfo:');
+		console.log('-----supportCardId:', tempSupportInfo.supportCardId);
+		console.log('-----effectMany:');
+		console.log('------power:', tempSupportInfo.effectMany.power.toString());
+		console.log('------numTurns:', tempSupportInfo.effectMany.numTurns.toString());
+		console.log('------effectTo:', EffectTo[tempSupportInfo.effectMany.effectTo]);
+		console.log('------effectFor:', EffectFor[tempSupportInfo.effectMany.effectFor]);
+		console.log('------reqCode:', tempSupportInfo.effectMany.reqCode.toString());
+	};
+
+	const logTurn = (turn: any) => {
+		console.log('/********************************************|');
+		console.log(`|                    Turn ${turn}                  |`);
+		console.log('|___________________________________________*/');
+	};
+
+	const logTurnHalves = (turnHalves: any) => {
+		console.log('/*********************|');
+		console.log(`|        Half ${turnHalves}       |`);
+		console.log('|____________________*/');
+	};
+
+	describe('#Battling', async () => {
+		let battle: any;
+
+		beforeEach(async () => {
+			await battleContract.createBattle(alice.address, 1, bob.address, 2);
+			battle = await battleContract.battles(1);
+		});
+
+		it('should fight', async () => {
+			let result: any;
+
+			console.log('--------------------- Create battle --------------------');
+			logBattle(battle);
+			// Turn 1
+			logTurn(1);
+			console.log('--------------------- Go for new turn --------------------');
+			battle = await battleContract.goForNewTurn(battle);
+			logBattle(battle);
+
+			logTurnHalves(1);
+			console.log('--------------------- Resolve attacker --------------------');
+			battle = await battleContract.resolveAttacker(battle);
+			logBattle(battle);
+			console.log('--------------------- Fight --------------------');
+			battle = await battleContract.fight(battle);
+			logBattle(battle);
+			console.log('--------------------- Check if battle ended --------------------');
+			result = await battleContract.checkIfBattleEnded(battle);
+			console.log('isEnded:', result[0]);
+			console.log('winner address:', result[1]);
+			console.log('--------------------- Go to second half --------------------');
+			battle = await battleContract.resolveHalves(battle);
+			logBattle(battle);
+
+			logTurnHalves(2);
+			console.log('--------------------- Resolve attacker --------------------');
+			battle = await battleContract.resolveAttacker(battle);
+			logBattle(battle);
+			console.log('--------------------- Fight --------------------');
+			battle = await battleContract.fight(battle);
+			logBattle(battle);
+			console.log('--------------------- Check if battle ended --------------------');
+			result = await battleContract.checkIfBattleEnded(battle);
+			console.log('isEnded:', result[0]);
+			console.log('winner address:', result[1]);
+			console.log('--------------------- Go for turn 2 --------------------');
+			battle = await battleContract.resolveHalves(battle);
+			logBattle(battle);
+			// Turn 2
+			logTurn(2);
+			logTurnHalves(1);
+			console.log('--------------------- Resolve attacker --------------------');
+			battle = await battleContract.resolveAttacker(battle);
+			logBattle(battle);
+			console.log('--------------------- Fight --------------------');
+			battle = await battleContract.fight(battle);
+			logBattle(battle);
+			console.log('--------------------- Check if battle ended --------------------');
+			result = await battleContract.checkIfBattleEnded(battle);
+			console.log('isEnded:', result[0]);
+			console.log('winner address:', result[1]);
+			console.log('--------------------- Go to second half --------------------');
+			battle = await battleContract.resolveHalves(battle);
+			logBattle(battle);
+
+			logTurnHalves(2);
+			console.log('--------------------- Resolve attacker --------------------');
+			battle = await battleContract.resolveAttacker(battle);
+			logBattle(battle);
+			console.log('--------------------- Fight --------------------');
+			battle = await battleContract.fight(battle);
+			logBattle(battle);
+			console.log('--------------------- Check if battle ended --------------------');
+			result = await battleContract.checkIfBattleEnded(battle);
+			console.log('isEnded:', result[0]);
+			console.log('winner address:', result[1]);
+			console.log('--------------------- Go for turn 3 --------------------');
+			battle = await battleContract.resolveHalves(battle);
+			logBattle(battle);
+		});
+	});
 });

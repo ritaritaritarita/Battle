@@ -115,6 +115,9 @@ contract PepemonBattle is Ownable {
         // Emit event
         emit BattleCreated(_nextBattleId, p1Addr, p2Addr);
         _nextBattleId = _nextBattleId.add(1);
+
+        // Battle memory battle = goForBattle(battles[_nextBattleId]);
+        // return battle;
     }
 
     function goForBattle(Battle memory battle) public view returns (Battle memory) {
