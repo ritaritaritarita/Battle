@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./PepemonFactory.sol";
 import "./RandomNumberGenerator.sol";
-import "./PepemonCard.sol";
+import "./PepemonCardOracle.sol";
 import "./lib/Arrays.sol";
 
 contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
@@ -43,7 +43,7 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
     address public supportCardAddress;
     address public randomNumberGeneratorAddress;
 
-    PepemonCard cardContract;
+    PepemonCardOracle cardContract;
 
     mapping(uint256 => Deck) public decks;
     mapping(address => uint256[]) public playerToDecks;
@@ -77,7 +77,7 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
 
     function setCardAddress(address _cardAddress) public onlyOwner {
         cardAddress = _cardAddress;
-        cardContract = PepemonCard(cardAddress);
+        cardContract = PepemonCardOracle(cardAddress);
     }
 
     function setRandomNumberGenerator(address _randomNumberGeneratorAddress) public onlyOwner {

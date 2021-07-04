@@ -1,8 +1,8 @@
 import { getProvider } from './helpers/contract';
-import { PepemonBattle, PepemonCard, PepemonCardDeck, RandomNumberGenerator } from '../typechain';
+import { PepemonBattle, PepemonCardOracle, PepemonCardDeck, RandomNumberGenerator } from '../typechain';
 
 import DeckArtifact from '../artifacts/contracts/PepemonCardDeck.sol/PepemonCardDeck.json';
-import CardArtifact from '../artifacts/contracts/PepemonCard.sol/PepemonCard.json';
+import PepemonCardOracleArtifact from '../artifacts/contracts/PepemonCardOracle.sol/PepemonCardOracle.json';
 import BattleArtifact from '../artifacts/contracts/PepemonBattle.sol/PepemonBattle.json';
 import RNGArtifact from '../artifacts/contracts/RandomNumberGenerator.sol/RandomNumberGenerator.json';
 
@@ -19,12 +19,12 @@ const TurnHalves = ['FIRST_HALF', 'SECOND_HALF'];
 describe('::Battle', async () => {
   let battleContract: PepemonBattle;
   let pepemonDeckOracle: PepemonCardDeck | MockContract;
-  let pepemonCardOracle: PepemonCard | MockContract;
+  let pepemonCardOracle: PepemonCardOracle | MockContract;
   let rng: RandomNumberGenerator | MockContract;
 
   beforeEach(async () => {
     pepemonDeckOracle = await deployMockContract(alice, DeckArtifact.abi);
-    pepemonCardOracle = await deployMockContract(alice, CardArtifact.abi);
+    pepemonCardOracle = await deployMockContract(alice, PepemonCardOracleArtifact.abi);
     rng = await deployMockContract(alice, RNGArtifact.abi);
 
     battleContract = (await deployContract(alice, BattleArtifact, [
