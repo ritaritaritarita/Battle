@@ -1,0 +1,14 @@
+{
+  "battle_card_id": 1,
+  "name": "Pepesaur",
+  "stats": {
+    "battle_card_type": 0,
+    "hp": 50,
+    "spd": 10,
+    "inte": 5,
+    "def": 10,
+    "atk": 10,
+    "sAtk": 20,
+    "sDef": 20
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "support_card_id": 3,
+  "stats": {
+    "support_card_type": 0,
+    "name": "Haymaker Strike",
+    "effect_once": {
+      "power": 4,
+      "effect_to": 0,
+      "effect_for": 0,
+      "req_code": 0
+    },
+    "effect_many": {
+      "power": 0,
+      "number_of_turns": 0,
+      "effect_to": 0,
+      "effect_for": 0,
+      "req_code": 0
+    },
+    "unstackable": true,
+    "unresettable": true
+  }
+}

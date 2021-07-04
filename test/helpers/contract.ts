@@ -1,12 +1,9 @@
-import {deployContract, MockProvider} from 'ethereum-waffle';
+import { deployContract, MockProvider } from 'ethereum-waffle';
 import DeckArtifact from '../../artifacts/contracts/PepemonCardDeck.sol/PepemonCardDeck.json';
 import BattleArtifact from '../../artifacts/contracts/PepemonBattle.sol/PepemonBattle.json';
 
-import {Signer} from 'ethers';
-import {
-  PepemonCardDeck,
-  PepemonBattle
-} from '../../typechain';
+import { Signer } from 'ethers';
+import { PepemonCardDeck, PepemonBattle } from '../../typechain';
 
 let provider: MockProvider;
 

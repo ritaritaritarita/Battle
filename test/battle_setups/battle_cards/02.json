@@ -1,0 +1,14 @@
+{
+  "battle_card_id": 2,
+  "name": "Pepemander",
+  "stats": {
+    "battleCardType": 0,
+    "hp": 30,
+    "spd": 20,
+    "inte": 6,
+    "def": 8,
+    "atk": 12,
+    "sAtk": 24,
+    "sDef": 16
+  }
+}

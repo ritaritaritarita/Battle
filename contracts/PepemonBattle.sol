@@ -552,9 +552,8 @@ contract PepemonBattle is Ownable {
             // Number of defense cards of defense pepemon is 0.
             isTriggered = true;
             for (uint256 i = 0; i < defHand.tempBattleInfo.inte; i++) {
-                PepemonCard.SupportCardType supportCardType = _cardContract.getSupportCardTypeById(
-                    defHand.supportCardIds[i]
-                );
+                PepemonCard.SupportCardType supportCardType =
+                    _cardContract.getSupportCardTypeById(defHand.supportCardIds[i]);
                 if (supportCardType == PepemonCard.SupportCardType.DEFENSE) {
                     isTriggered = false;
                     break;
