@@ -1,8 +1,8 @@
 import { getProvider } from './helpers/contract';
-import { PepemonBattle, PepemonCard, PepemonCardDeck, RandomNumberGenerator } from '../typechain';
+import { PepemonBattle, PepemonCardOracle, PepemonCardDeck, RandomNumberGenerator } from '../typechain';
 import { deployContract, deployMockContract, MockContract } from 'ethereum-waffle';
 import DeckArtifact from '../artifacts/contracts/PepemonCardDeck.sol/PepemonCardDeck.json';
-import CardArtifact from '../artifacts/contracts/PepemonCard.sol/PepemonCard.json';
+import CardArtifact from '../artifacts/contracts/PepemonCardOracle.sol/PepemonCardOracle.json';
 import RNGArtifact from '../artifacts/contracts/RandomNumberGenerator.sol/RandomNumberGenerator.json';
 import BattleArtifact from '../artifacts/contracts/PepemonBattle.sol/PepemonBattle.json';
 
@@ -19,7 +19,7 @@ const TurnHalves = ['FIRST_HALF', 'SECOND_HALF'];
 describe('::Battle', async () => {
   let battleContract: PepemonBattle;
   let pepemonDeckOracle: PepemonCardDeck | MockContract;
-  let pepemonCardOracle: PepemonCard | MockContract;
+  let pepemonCardOracle: PepemonCardOracle | MockContract;
   let rng: RandomNumberGenerator | MockContract;
 
   beforeEach(async () => {

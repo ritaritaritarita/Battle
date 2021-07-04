@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /**
 This contract acts as the oracle, it contains battling information for both the Pepemon Battle and Support cards
 **/
-contract PepemonCard is Ownable {
+contract PepemonCardOracle is Ownable {
     enum BattleCardType {PLANT, FIRE}
 
     enum SupportCardType {OFFENSE, STRONG_OFFENSE, DEFENSE, STRONG_DEFENSE}

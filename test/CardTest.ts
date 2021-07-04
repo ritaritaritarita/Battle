@@ -1,21 +1,17 @@
-import { deployDeckContract, getProvider } from './helpers/contract';
-import { PepemonCard } from '../typechain';
-import { PepemonFactory } from '../typechain/PepemonFactory';
+import {getProvider} from './helpers/contract';
+import {PepemonCardOracle} from '../typechain';
+import CardArtifact from '../artifacts/contracts/PepemonCardOracle.sol/PepemonCardOracle.json';
 
-import FactoryArtifact from '../contracts/abi/PepemonFactory.json';
-import CardArtifact from '../artifacts/contracts/PepemonCard.sol/PepemonCard.json';
-
-import { expect } from 'chai';
-import { deployMockContract, MockContract, deployContract } from 'ethereum-waffle';
-import { BigNumber } from 'ethers';
+import {expect} from 'chai';
+import {deployContract} from 'ethereum-waffle';
 
 const [alice, bob] = getProvider().getWallets();
 
 describe('Card', () => {
-  let cardContract: PepemonCard;
+  let cardContract: PepemonCardOracle;
 
   beforeEach(async () => {
-    cardContract = (await deployContract(alice, CardArtifact)) as PepemonCard;
+    cardContract = (await deployContract(alice, CardArtifact)) as PepemonCardOracle;
   });
 
   describe('::BattleCard', async () => {
