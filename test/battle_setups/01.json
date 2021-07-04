@@ -1,6 +1,17 @@
 {
   "alice": {
     "battle_card_id": 1,
+    "battle_card_stats": {
+      "battleCardType": 0,
+      "name": "Pepesaur",
+      "hp": 50,
+      "spd": 10,
+      "inte": 5,
+      "def": 10,
+      "atk": 10,
+      "sAtk": 20,
+      "sDef": 20
+    },
     "support_cards": [
       {
         "id": 1,
@@ -13,7 +24,7 @@
     ]
   },
   "bob": {
-    "battle_card_id": 6,
+    "battle_card_id": 2,
     "support_cards": [
       {
         "id": 1,

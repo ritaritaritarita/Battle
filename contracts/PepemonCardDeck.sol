@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./PepemonFactory.sol";
+import "./RandomNumberGenerator.sol";
 import "./PepemonCard.sol";
 import "./lib/Arrays.sol";
 
@@ -40,6 +41,7 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
     address public cardAddress;
     address public battleCardAddress;
     address public supportCardAddress;
+    address public randomNumberGeneratorAddress;
 
     PepemonCard cardContract;
 
@@ -59,9 +61,9 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
      */
     function supportsInterface(bytes4 interfaceId)
         public
+        view
         virtual
         override(ERC721, ERC1155Receiver)
-        view
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
@@ -76,6 +78,10 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
     function setCardAddress(address _cardAddress) public onlyOwner {
         cardAddress = _cardAddress;
         cardContract = PepemonCard(cardAddress);
+    }
+
+    function setRandomNumberGenerator(address _randomNumberGeneratorAddress) public onlyOwner {
+        randomNumberGeneratorAddress = _randomNumberGeneratorAddress;
     }
 
     function setBattleCardAddress(address _battleCardAddress) public onlyOwner {
@@ -261,6 +267,6 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
      */
     function shuffleDeck(uint256 _deckId) public view returns (uint256[] memory) {
         uint256[] memory totalSupportCards = getAllSupportCardsInDeck(_deckId);
-        return Arrays.shuffle(totalSupportCards);
+        return Arrays.shuffle(totalSupportCards, RandomNumberGenerator(randomNumberGeneratorAddress).getRandomNumber());
     }
 }
