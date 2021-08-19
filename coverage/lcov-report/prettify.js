@@ -33,7 +33,8 @@ window.PR_SHOULD_USE_CONTINUATION = true;
   ];
   var H = [h, 'case,done,elif,esac,eval,fi,function,in,local,set,then,until'];
   var A = [l, R, w, s + I, f, H];
-  var e = /^(DIR|FILE|vector|(de|priority_)?queue|list|stack|(const_)?iterator|(multi)?(set|map)|bitset|u?(int|float)\d*)/;
+  var e =
+    /^(DIR|FILE|vector|(de|priority_)?queue|list|stack|(const_)?iterator|(multi)?(set|map)|bitset|u?(int|float)\d*)/;
   var C = 'str';
   var z = 'kwd';
   var j = 'com';

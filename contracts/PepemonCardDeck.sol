@@ -8,7 +8,6 @@ import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./PepemonFactory.sol";
-import "./RandomNumberGenerator.sol";
 import "./PepemonCardOracle.sol";
 import "./lib/Arrays.sol";
 
@@ -38,10 +37,8 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
     uint8 public MIN_SUPPORT_CARDS;
 
     uint256 nextDeckId;
-    address public cardAddress;
     address public battleCardAddress;
     address public supportCardAddress;
-    address public randomNumberGeneratorAddress;
 
     PepemonCardOracle cardContract;
 
@@ -75,15 +72,6 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
         _;
     }
 
-    function setCardAddress(address _cardAddress) public onlyOwner {
-        cardAddress = _cardAddress;
-        cardContract = PepemonCardOracle(cardAddress);
-    }
-
-    function setRandomNumberGenerator(address _randomNumberGeneratorAddress) public onlyOwner {
-        randomNumberGeneratorAddress = _randomNumberGeneratorAddress;
-    }
-
     function setBattleCardAddress(address _battleCardAddress) public onlyOwner {
         battleCardAddress = _battleCardAddress;
     }
@@ -111,6 +99,7 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
             PepemonFactory(battleCardAddress).balanceOf(msg.sender, battleCardId) >= 1,
             "PepemonCardDeck: Don't own battle card"
         );
+
         require(battleCardId != decks[deckId].battleCardId, "PepemonCardDeck: Card already in deck");
 
         uint256 oldBattleCardId = decks[deckId].battleCardId;
@@ -265,8 +254,8 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
      * @dev Shuffles deck
      * @param _deckId uint256 ID of the deck
      */
-    function shuffleDeck(uint256 _deckId) public view returns (uint256[] memory) {
+    function shuffleDeck(uint256 _deckId, uint256 _seed) public view returns (uint256[] memory) {
         uint256[] memory totalSupportCards = getAllSupportCardsInDeck(_deckId);
-        return Arrays.shuffle(totalSupportCards, RandomNumberGenerator(randomNumberGeneratorAddress).getRandomNumber());
+        return Arrays.shuffle(totalSupportCards, _seed);
     }
 }

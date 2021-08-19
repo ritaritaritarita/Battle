@@ -9,13 +9,31 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 This contract acts as the oracle, it contains battling information for both the Pepemon Battle and Support cards
 **/
 contract PepemonCardOracle is Ownable {
-    enum BattleCardType {PLANT, FIRE}
+    enum BattleCardType {
+        PLANT,
+        FIRE
+    }
 
-    enum SupportCardType {OFFENSE, STRONG_OFFENSE, DEFENSE, STRONG_DEFENSE}
+    enum SupportCardType {
+        OFFENSE,
+        STRONG_OFFENSE,
+        DEFENSE,
+        STRONG_DEFENSE
+    }
 
-    enum EffectTo {ATTACK, STRONG_ATTACK, DEFENSE, STRONG_DEFENSE, SPEED, INTELLIGENCE}
+    enum EffectTo {
+        ATTACK,
+        STRONG_ATTACK,
+        DEFENSE,
+        STRONG_DEFENSE,
+        SPEED,
+        INTELLIGENCE
+    }
 
-    enum EffectFor {ME, ENEMY}
+    enum EffectFor {
+        ME,
+        ENEMY
+    }
 
     struct BattleCardStats {
         uint256 battleCardId;
@@ -67,8 +85,6 @@ contract PepemonCardOracle is Ownable {
     event BattleCardUpdated(address sender, uint256 cardId);
     event SupportCardCreated(address sender, uint256 cardId);
     event SupportCardUpdated(address sender, uint256 cardId);
-
-    constructor() public {}
 
     function addBattleCard(BattleCardStats memory cardData) public onlyOwner {
         require(battleCardStats[cardData.battleCardId].battleCardId == 0, "PepemonCard: BattleCard already exists");

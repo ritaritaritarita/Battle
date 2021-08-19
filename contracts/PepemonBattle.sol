@@ -15,8 +15,16 @@ contract PepemonBattle is Ownable {
     event BattleCreated(uint256 battleId, address player1Addr, address player2Addr);
     event BattleEnded(uint256 battleId, address winnerAddr);
 
-    enum Attacker {PLAYER_ONE, PLAYER_TWO}
-    enum TurnHalves {FIRST_HALF, SECOND_HALF}
+    mapping(uint256 => bytes32) internal battleToRandomNumber;
+
+    enum Attacker {
+        PLAYER_ONE,
+        PLAYER_TWO
+    }
+    enum TurnHalves {
+        FIRST_HALF,
+        SECOND_HALF
+    }
 
     struct Battle {
         uint256 battleId;
@@ -62,13 +70,11 @@ contract PepemonBattle is Ownable {
 
     uint256 private _nextBattleId;
     uint8 private _refreshTurn = 5;
-    uint256 private _randNonce = 0;
 
     PepemonCardOracle private _cardContract;
     PepemonCardDeck private _deckContract;
     RandomNumberGenerator private _randNrGenContract;
 
-    // todo card address needs to be changed to card oracle address
     constructor(
         address cardOracleAddress,
         address deckOracleAddress,
@@ -114,9 +120,6 @@ contract PepemonBattle is Ownable {
         // Emit event
         emit BattleCreated(_nextBattleId, p1Addr, p2Addr);
         _nextBattleId = _nextBattleId.add(1);
-
-        // Battle memory battle = goForBattle(battles[_nextBattleId]);
-        // return battle;
     }
 
     function goForBattle(Battle memory battle) public view returns (Battle memory) {
@@ -158,8 +161,12 @@ contract PepemonBattle is Ownable {
         Player memory player2 = battle.player2;
 
         // Initiate tempBattleInfo of both players
-        PepemonCardOracle.BattleCardStats memory p1BattleCard = _cardContract.getBattleCardById(player1.hand.battleCardId);
-        PepemonCardOracle.BattleCardStats memory p2BattleCard = _cardContract.getBattleCardById(player2.hand.battleCardId);
+        PepemonCardOracle.BattleCardStats memory p1BattleCard = _cardContract.getBattleCardById(
+            player1.hand.battleCardId
+        );
+        PepemonCardOracle.BattleCardStats memory p2BattleCard = _cardContract.getBattleCardById(
+            player2.hand.battleCardId
+        );
 
         player1.hand.tempBattleInfo.spd = p1BattleCard.spd;
         player1.hand.tempBattleInfo.inte = p1BattleCard.inte;
@@ -292,8 +299,6 @@ contract PepemonBattle is Ownable {
         // todo needs to connect to chain link
         uint256 randomNumber = _randNrGenContract.getRandomNumber();
         return randomNumber % modulus;
-        // _randNonce++;
-        // return uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, _randNonce))) % modulus;
     }
 
     function checkIfBattleEnded(Battle memory battle) public pure returns (bool, address) {
@@ -551,8 +556,9 @@ contract PepemonBattle is Ownable {
             // Number of defense cards of defense pepemon is 0.
             isTriggered = true;
             for (uint256 i = 0; i < defHand.tempBattleInfo.inte; i++) {
-                PepemonCardOracle.SupportCardType supportCardType =
-                    _cardContract.getSupportCardTypeById(defHand.supportCardIds[i]);
+                PepemonCardOracle.SupportCardType supportCardType = _cardContract.getSupportCardTypeById(
+                    defHand.supportCardIds[i]
+                );
                 if (supportCardType == PepemonCardOracle.SupportCardType.DEFENSE) {
                     isTriggered = false;
                     break;
@@ -561,7 +567,9 @@ contract PepemonBattle is Ownable {
         } else if (reqCode == 3) {
             // Each +2 offense cards of offense pepemon.
             for (uint256 i = 0; i < atkHand.tempBattleInfo.inte; i++) {
-                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(atkHand.supportCardIds[i]);
+                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(
+                    atkHand.supportCardIds[i]
+                );
                 if (card.supportCardType != PepemonCardOracle.SupportCardType.OFFENSE) {
                     continue;
                 }
@@ -576,7 +584,9 @@ contract PepemonBattle is Ownable {
         } else if (reqCode == 4) {
             // Each +3 offense cards of offense pepemon.
             for (uint256 i = 0; i < atkHand.tempBattleInfo.inte; i++) {
-                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(atkHand.supportCardIds[i]);
+                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(
+                    atkHand.supportCardIds[i]
+                );
                 if (card.supportCardType != PepemonCardOracle.SupportCardType.OFFENSE) {
                     continue;
                 }
@@ -591,7 +601,9 @@ contract PepemonBattle is Ownable {
         } else if (reqCode == 5) {
             // Each offense card of offense pepemon.
             for (uint256 i = 0; i < atkHand.tempBattleInfo.inte; i++) {
-                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(atkHand.supportCardIds[i]);
+                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(
+                    atkHand.supportCardIds[i]
+                );
                 if (card.supportCardType != PepemonCardOracle.SupportCardType.OFFENSE) {
                     continue;
                 }
@@ -601,7 +613,9 @@ contract PepemonBattle is Ownable {
         } else if (reqCode == 6) {
             // Each +3 defense card of defense pepemon.
             for (uint256 i = 0; i < defHand.supportCardIds.length; i++) {
-                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(defHand.supportCardIds[i]);
+                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(
+                    defHand.supportCardIds[i]
+                );
                 if (card.supportCardType != PepemonCardOracle.SupportCardType.DEFENSE) {
                     continue;
                 }
@@ -616,7 +630,9 @@ contract PepemonBattle is Ownable {
         } else if (reqCode == 7) {
             // Each +4 defense card of defense pepemon.
             for (uint256 i = 0; i < defHand.supportCardIds.length; i++) {
-                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(defHand.supportCardIds[i]);
+                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(
+                    defHand.supportCardIds[i]
+                );
                 if (card.supportCardType != PepemonCardOracle.SupportCardType.DEFENSE) {
                     continue;
                 }
@@ -637,7 +653,9 @@ contract PepemonBattle is Ownable {
         } else if (reqCode == 10) {
             // Offense pepemon is using strong attack
             for (uint256 i = 0; i < atkHand.supportCardIds.length; i++) {
-                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(atkHand.supportCardIds[i]);
+                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(
+                    atkHand.supportCardIds[i]
+                );
                 if (card.supportCardType == PepemonCardOracle.SupportCardType.STRONG_OFFENSE) {
                     isTriggered = true;
                     break;
