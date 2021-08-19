@@ -7,6 +7,8 @@ import "./ChainLinkRngOracle.sol";
 
 // todo allow chain link oracle to be changed
 contract RandomNumberGenerator is Ownable {
+    event FetchingRandomNumber(uint256 _id, bytes32 _requestId, uint256 _when);
+
     address internal chainLinkOracle;
 
     mapping(uint256 => bytes32) internal requestNumberToRequestId;
@@ -21,6 +23,8 @@ contract RandomNumberGenerator is Ownable {
         bytes32 requestId = ChainLinkRngOracle(chainLinkOracle).getRandomNumber();
 
         requestNumberToRequestId[counter] = requestId;
+        emit FetchingRandomNumber(counter, requestId, block.timestamp);
+        counter = counter + 1;
 
         return requestId;
     }

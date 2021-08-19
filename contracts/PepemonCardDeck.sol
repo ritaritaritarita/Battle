@@ -40,12 +40,8 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
     address public battleCardAddress;
     address public supportCardAddress;
 
-    PepemonCardOracle cardContract;
-
     mapping(uint256 => Deck) public decks;
     mapping(address => uint256[]) public playerToDecks;
-
-    // mapping(address => uint256) public playerToDecks; // todo players can have multiple decks
 
     constructor() ERC721("Pepedeck", "Pepedeck") {
         nextDeckId = 1;

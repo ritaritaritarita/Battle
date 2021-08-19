@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./PepemonCardDeck.sol";
 import "./PepemonCardOracle.sol";
-import "./RandomNumberGenerator.sol";
+import "./lib/RandomNumberGenerator.sol";
 
 contract PepemonBattle is Ownable {
     using SafeMath for uint256;
