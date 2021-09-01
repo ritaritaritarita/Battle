@@ -33,8 +33,8 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
         uint256 amount;
     }
 
-    uint8 public MAX_SUPPORT_CARDS;
-    uint8 public MIN_SUPPORT_CARDS;
+    uint256 public MAX_SUPPORT_CARDS;
+    uint256 public MIN_SUPPORT_CARDS;
 
     uint256 nextDeckId;
     address public battleCardAddress;
@@ -76,11 +76,11 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
         supportCardAddress = _supportCardAddress;
     }
 
-    function setMaxSupportCards(uint8 _maxSupportCards) public onlyOwner {
+    function setMaxSupportCards(uint256 _maxSupportCards) public onlyOwner {
         MAX_SUPPORT_CARDS = _maxSupportCards;
     }
 
-    function setMinSupportCards(uint8 _minSupportCards) public onlyOwner {
+    function setMinSupportCards(uint256 _minSupportCards) public onlyOwner {
         MIN_SUPPORT_CARDS = _minSupportCards;
     }
 

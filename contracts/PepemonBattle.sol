@@ -689,6 +689,7 @@ contract PepemonBattle is AdminRole {
             } else {
                 isTriggered = (
                     defHand.health * 2 <= int256(_cardContract.getBattleCardById(defHand.battleCardId).hp)
+
                 );
             }
         }
