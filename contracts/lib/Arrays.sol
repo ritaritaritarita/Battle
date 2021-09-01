@@ -9,6 +9,7 @@ library Arrays {
             uint256 temp = _elements[n];
             _elements[n] = _elements[i];
             _elements[i] = temp;
+            _seed = uint(keccak256(abi.encodePacked(_seed)));
         }
         return _elements;
     }
