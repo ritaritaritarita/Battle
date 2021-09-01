@@ -160,7 +160,7 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
         PepemonFactory(supportCardAddress).safeTransferFrom(msg.sender, address(this), _supportCardId, _amount, "");
     }
 
-    function removeSupportCardTypeFromDeck(uint256 _deckId, uint256 _supportCardId) internal {
+  /*  function removeSupportCardTypeFromDeck(uint256 _deckId, uint256 _supportCardId) internal {
         Deck storage deck = decks[_deckId];
         SupportCardType storage supportCardType = decks[_deckId].supportCardTypes[_supportCardId];
         require(deck.supportCardCount - supportCardType.count >= MIN_SUPPORT_CARDS, "PepemonCardDeck: Deck underflow");
@@ -177,7 +177,7 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
 
         decks[_deckId].supportCardTypeList.pop();
         delete decks[_deckId].supportCardTypes[cardTypeToRemove];
-    }
+    }*/
 
     function removeSupportCardFromDeck(
         uint256 _deckId,

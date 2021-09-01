@@ -2,15 +2,13 @@
 
 pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
-
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "./lib/AdminRole.sol";
 import "./PepemonCardDeck.sol";
 import "./PepemonCardOracle.sol";
-import "./lib/RandomNumberGenerator.sol";
+import "./lib/ChainLinkRngOracle.sol";
 
-contract PepemonBattle is Ownable {
-    using SafeMath for uint256;
+contract PepemonBattle is AdminRole {
+
 
     event BattleCreated(uint256 battleId, address player1Addr, address player2Addr);
     event BattleEnded(uint256 battleId, address winnerAddr);
@@ -69,11 +67,11 @@ contract PepemonBattle is Ownable {
     mapping(uint256 => Battle) public battles;
 
     uint256 private _nextBattleId;
-    uint8 private _refreshTurn = 5;
+    uint8 constant _refreshTurn = 5;
 
     PepemonCardOracle private _cardContract;
     PepemonCardDeck private _deckContract;
-    RandomNumberGenerator private _randNrGenContract;
+    ChainLinkRngOracle private _randNrGenContract;
 
     constructor(
         address cardOracleAddress,
@@ -82,7 +80,7 @@ contract PepemonBattle is Ownable {
     ) {
         _cardContract = PepemonCardOracle(cardOracleAddress);
         _deckContract = PepemonCardDeck(deckOracleAddress);
-        _randNrGenContract = RandomNumberGenerator(randOracleAddress);
+        _randNrGenContract = ChainLinkRngOracle(randOracleAddress);
         _nextBattleId = 1;
     }
 
@@ -98,11 +96,12 @@ contract PepemonBattle is Ownable {
         uint256 p1DeckId,
         address p2Addr,
         uint256 p2DeckId
-    ) public onlyOwner {
+    ) public onlyAdmin {
         require(p1Addr != p2Addr, "PepemonBattle: Cannot battle yourself");
 
         (uint256 p1BattleCardId, ) = _deckContract.decks(p1DeckId);
         (uint256 p2BattleCardId, ) = _deckContract.decks(p2DeckId);
+
         PepemonCardOracle.BattleCardStats memory p1BattleCard = _cardContract.getBattleCardById(p1BattleCardId);
         PepemonCardOracle.BattleCardStats memory p2BattleCard = _cardContract.getBattleCardById(p2BattleCardId);
         // Initiate battle ID
@@ -119,7 +118,7 @@ contract PepemonBattle is Ownable {
         battles[_nextBattleId].player2.deckId = p2DeckId;
         // Emit event
         emit BattleCreated(_nextBattleId, p1Addr, p2Addr);
-        _nextBattleId = _nextBattleId.add(1);
+        _nextBattleId++;
     }
 
     function goForBattle(Battle memory battle) public view returns (Battle memory) {
@@ -182,25 +181,33 @@ contract PepemonBattle is Ownable {
         player2.hand.tempBattleInfo.sAtk = p2BattleCard.sAtk;
         player2.hand.tempBattleInfo.sDef = p2BattleCard.sDef;
 
-        bool isRefreshTurn = (battle.currentTurn % _refreshTurn == 0 ? true : false);
+        bool isRefreshTurn = (battle.currentTurn % _refreshTurn == 0);
         if (!isRefreshTurn) {
             // Get temp support info of previous turn's hands and calculate their effect for the new turn
-            player1.hand = calTempPowerBoost(player1.hand);
-            player2.hand = calTempPowerBoost(player2.hand);
+            player1.hand = calTempPowerBoost(player1.hand, player2.hand);
+            player2.hand = calTempPowerBoost(player2.hand, player1.hand);
         }
         // Draw support cards by temp battle info inte and speed
         if (isRefreshTurn) {
-            // Shuffle player1 support cards
+
+            // Shuffle player1 support cards, making sure to use different seed every time
             uint256 p1SupportCardIdsLength = _deckContract.getSupportCardCountInDeck(player1.deckId);
-            for (uint256 i = 0; i < p1SupportCardIdsLength; i++) {
-                player1.totalSupportCardIds[i] = _deckContract.shuffleDeck(player1.deckId)[i];
+            
+            uint[] memory scrambled = _deckContract.shuffleDeck(player1.deckId, _randMod(2**253+battle.currentTurn));
+            
+            for (uint i =0 ; i < p1SupportCardIdsLength; i++){
+                player1.totalSupportCardIds[i]=scrambled[i];
             }
+            
             player1.playedCardCount = 0;
-            // Shuffle player2 support cards
+            // Shuffle player2 support cards, making sure to use different seed every time
+            uint[] memory scrambled2 = _deckContract.shuffleDeck(player2.deckId, _randMod(2**252+battle.currentTurn));
             uint256 p2SupportCardIdsLength = _deckContract.getSupportCardCountInDeck(player2.deckId);
+            
             for (uint256 i = 0; i < p2SupportCardIdsLength; i++) {
-                player2.totalSupportCardIds[i] = _deckContract.shuffleDeck(player2.deckId)[i];
+                player1.totalSupportCardIds[i]=scrambled2[i];
             }
+            
             player2.playedCardCount = 0;
         }
         // Draw player1 support cards for the new turn
@@ -224,7 +231,7 @@ contract PepemonBattle is Ownable {
         return battle;
     }
 
-    function calTempPowerBoost(Hand memory hand) public pure returns (Hand memory) {
+    function calTempPowerBoost(Hand memory hand, Hand memory oppHand) public pure returns (Hand memory) {
         for (uint256 i = 0; i < hand.tempSupportInfosCount; i++) {
             TempSupportInfo memory tempSupportInfo = hand.tempSupportInfos[i];
             PepemonCardOracle.EffectMany memory effect = tempSupportInfo.effectMany;
@@ -234,22 +241,35 @@ contract PepemonBattle is Ownable {
                     int256 temp;
                     if (effect.effectTo == PepemonCardOracle.EffectTo.ATTACK) {
                         temp = int256(hand.tempBattleInfo.atk) + effect.power;
-                        hand.tempBattleInfo.atk = uint256(temp);
+                        hand.tempBattleInfo.atk = uint256(temp>0?uint256(temp):0);
                     } else if (effect.effectTo == PepemonCardOracle.EffectTo.DEFENSE) {
                         temp = int256(hand.tempBattleInfo.def) + effect.power;
-                        hand.tempBattleInfo.def = uint256(temp);
+                        hand.tempBattleInfo.def = uint256(temp>0?uint256(temp):0);
                     } else if (effect.effectTo == PepemonCardOracle.EffectTo.SPEED) {
                         temp = int256(hand.tempBattleInfo.spd) + effect.power;
-                        hand.tempBattleInfo.spd = uint256(temp);
+                        hand.tempBattleInfo.spd = uint256(temp>0?uint256(temp):0);
                     } else if (effect.effectTo == PepemonCardOracle.EffectTo.INTELLIGENCE) {
                         temp = int256(hand.tempBattleInfo.inte) + effect.power;
-                        hand.tempBattleInfo.inte = uint256(temp);
+                        hand.tempBattleInfo.inte = uint256(temp>0?uint256(temp):0);
                     }
                 } else {
-                    // Currently effectFor of EffectMany can only be ME so ignored ENEMY
+                    int256 temp;
+                    if (effect.effectTo == PepemonCardOracle.EffectTo.ATTACK) {
+                        temp = int256(oppHand.tempBattleInfo.atk) + effect.power;
+                        oppHand.tempBattleInfo.atk = uint256(temp>0?uint256(temp):0);
+                    } else if (effect.effectTo == PepemonCardOracle.EffectTo.DEFENSE) {
+                        temp = int256(oppHand.tempBattleInfo.def) + effect.power;
+                        oppHand.tempBattleInfo.def = uint256(temp>0?uint256(temp):0);
+                    } else if (effect.effectTo == PepemonCardOracle.EffectTo.SPEED) {
+                        temp = int256(oppHand.tempBattleInfo.spd) + effect.power;
+                        oppHand.tempBattleInfo.spd = uint256(temp>0?uint256(temp):0);
+                    } else if (effect.effectTo == PepemonCardOracle.EffectTo.INTELLIGENCE) {
+                        temp = int256(oppHand.tempBattleInfo.inte) + effect.power;
+                        oppHand.tempBattleInfo.inte = uint256(temp>0?uint256(temp):0);
+                    }
                 }
                 // Decrease effect numTurns by 1
-                effect.numTurns = effect.numTurns.sub(1);
+                effect.numTurns--;
                 // Delete this one from tempSupportInfo if the card is no longer available
                 if (effect.numTurns == 0) {
                     if (i < hand.tempSupportInfosCount - 1) {
@@ -296,8 +316,7 @@ contract PepemonBattle is Ownable {
      * @param modulus uint256
      */
     function _randMod(uint256 modulus) private view returns (uint256) {
-        // todo needs to connect to chain link
-        uint256 randomNumber = _randNrGenContract.getRandomNumber();
+        uint256 randomNumber = uint(keccak256(abi.encodePacked(_randNrGenContract.getRandomNumber(), modulus)));
         return randomNumber % modulus;
     }
 
@@ -325,7 +344,7 @@ contract PepemonBattle is Ownable {
         (atkHand, defHand) = calPowerBoost(atkHand, defHand);
         // Fight
         if (atkHand.tempBattleInfo.atk > defHand.tempBattleInfo.def) {
-            defHand.health -= int256(atkHand.tempBattleInfo.atk - defHand.tempBattleInfo.def);
+            defHand.health -= int256(atkHand.tempBattleInfo.atk) - int256(defHand.tempBattleInfo.def);
         } else {
             defHand.health -= 1;
         }
@@ -551,7 +570,7 @@ contract PepemonBattle is Ownable {
             isTriggered = true;
         } else if (reqCode == 1) {
             // Intelligence of offense pepemon <= 5.
-            isTriggered = (atkHand.tempBattleInfo.inte <= 5 ? true : false);
+            isTriggered = (atkHand.tempBattleInfo.inte <= 5 );
         } else if (reqCode == 2) {
             // Number of defense cards of defense pepemon is 0.
             isTriggered = true;
@@ -580,7 +599,7 @@ contract PepemonBattle is Ownable {
                     }
                 }
             }
-            isTriggered = (num > 0 ? true : false);
+            isTriggered = (num > 0 );
         } else if (reqCode == 4) {
             // Each +3 offense cards of offense pepemon.
             for (uint256 i = 0; i < atkHand.tempBattleInfo.inte; i++) {
@@ -597,7 +616,7 @@ contract PepemonBattle is Ownable {
                     }
                 }
             }
-            isTriggered = (num > 0 ? true : false);
+            isTriggered = (num > 0 );
         } else if (reqCode == 5) {
             // Each offense card of offense pepemon.
             for (uint256 i = 0; i < atkHand.tempBattleInfo.inte; i++) {
@@ -609,7 +628,7 @@ contract PepemonBattle is Ownable {
                 }
                 num++;
             }
-            isTriggered = (num > 0 ? true : false);
+            isTriggered = (num > 0 );
         } else if (reqCode == 6) {
             // Each +3 defense card of defense pepemon.
             for (uint256 i = 0; i < defHand.supportCardIds.length; i++) {
@@ -626,7 +645,7 @@ contract PepemonBattle is Ownable {
                     }
                 }
             }
-            isTriggered = (num > 0 ? true : false);
+            isTriggered = (num > 0 );
         } else if (reqCode == 7) {
             // Each +4 defense card of defense pepemon.
             for (uint256 i = 0; i < defHand.supportCardIds.length; i++) {
@@ -643,13 +662,13 @@ contract PepemonBattle is Ownable {
                     }
                 }
             }
-            isTriggered = (num > 0 ? true : false);
+            isTriggered = (num > 0 );
         } else if (reqCode == 8) {
             // Intelligence of defense pepemon <= 5.
-            isTriggered = (defHand.tempBattleInfo.inte <= 5 ? true : false);
+            isTriggered = (defHand.tempBattleInfo.inte <= 5 );
         } else if (reqCode == 9) {
             // Intelligence of defense pepemon >= 7.
-            isTriggered = (defHand.tempBattleInfo.inte >= 7 ? true : false);
+            isTriggered = (defHand.tempBattleInfo.inte >= 7 );
         } else if (reqCode == 10) {
             // Offense pepemon is using strong attack
             for (uint256 i = 0; i < atkHand.supportCardIds.length; i++) {
@@ -666,14 +685,10 @@ contract PepemonBattle is Ownable {
             if (isAttacker) {
                 isTriggered = (
                     atkHand.health * 2 <= int256(_cardContract.getBattleCardById(atkHand.battleCardId).hp)
-                        ? true
-                        : false
                 );
             } else {
                 isTriggered = (
                     defHand.health * 2 <= int256(_cardContract.getBattleCardById(defHand.battleCardId).hp)
-                        ? true
-                        : false
                 );
             }
         }
