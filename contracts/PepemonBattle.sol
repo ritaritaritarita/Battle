@@ -14,6 +14,7 @@ contract PepemonBattle is AdminRole {
     mapping (uint => uint) public battleIdRNGSeed;
 
     uint constant _max_inte = 8;
+    uint constant _max_cards_on_table = 5;
     uint constant _refreshTurn = 5;
 
     //Attacker can either be PLAYER_ONE or PLAYER_TWO
@@ -70,7 +71,7 @@ contract PepemonBattle is AdminRole {
         CurrentBattleCardStats currentBCstats;
         uint256[_max_inte] supportCardInHandIds;
         uint256 tableSupportCardStats;
-        TableSupportCardStats[_refreshTurn] tableSupportCards;
+        TableSupportCardStats[_max_cards_on_table] tableSupportCards;
     }
     //spd, inte, def, atk, sAtk, sDef - Current stats of battle card (with powerups included)
     //Each param can go into the negatives
