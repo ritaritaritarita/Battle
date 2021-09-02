@@ -389,7 +389,7 @@ contract PepemonBattle is AdminRole {
         uint chainlinkNumber = _randNrGenContract.getRandomNumber();
         //Create a new pseudorandom number using the seed and battle info as entropy
         //This makes sure the RNG returns a different number every time
-        uint256 randomNumber = uint(keccak256(abi.encodePacked(chainlinkNumber, battle.player1.playerAddr, battle.player2.playerAddr)));
+        uint256 randomNumber = uint(keccak256(abi.encodePacked(block.number, chainlinkNumber, battle.player1.playerAddr, battle.player2.playerAddr)));
         return randomNumber;
     }
 
