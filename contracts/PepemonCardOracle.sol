@@ -64,7 +64,12 @@ contract PepemonCardOracle is AdminRole {
 
     struct EffectOne {
         // If power is 0, it is equal to the total of all normal offense/defense cards in the current turn.
-        int256 power;
+        
+        //basePower = power if req not met
+        int256 basePower;
+
+        //triggeredPower = power if req met
+        int256 triggeredPower;
         EffectTo effectTo;
         EffectFor effectFor;
         uint256 reqCode; //requirement code
