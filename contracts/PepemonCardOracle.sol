@@ -86,13 +86,13 @@ contract PepemonCardOracle is AdminRole {
     event SupportCardCreated(address sender, uint256 cardId);
     event SupportCardUpdated(address sender, uint256 cardId);
 
-    function addBattleCard(BattleCardStats memory cardData) public onlyOwner {
+    function addBattleCard(BattleCardStats memory cardData) public onlyAdmin {
         require(battleCardStats[cardData.battleCardId].battleCardId == 0, "PepemonCard: BattleCard already exists");
         battleCardStats[cardData.battleCardId]=cardData;
         emit BattleCardCreated(msg.sender, cardData.battleCardId);
     }
 
-    function updateBattleCard(BattleCardStats memory cardData) public onlyOwner {
+    function updateBattleCard(BattleCardStats memory cardData) public onlyAdmin {
         require(battleCardStats[cardData.battleCardId].battleCardId != 0, "PepemonCard: BattleCard not found");
         battleCardStats[cardData.battleCardId]=cardData;
         emit BattleCardUpdated(msg.sender, cardData.battleCardId);
@@ -103,13 +103,13 @@ contract PepemonCardOracle is AdminRole {
         return battleCardStats[_id];
     }
 
-    function addSupportCard(SupportCardStats memory cardData) public onlyOwner {
+    function addSupportCard(SupportCardStats memory cardData) public onlyAdmin {
         require(supportCardStats[cardData.supportCardId].supportCardId == 0, "PepemonCard: SupportCard already exists");
         supportCardStats[cardData.supportCardId]=cardData;
         emit SupportCardCreated(msg.sender, cardData.supportCardId);
     }
 
-    function updateSupportCard(SupportCardStats memory cardData) public onlyOwner {
+    function updateSupportCard(SupportCardStats memory cardData) public onlyAdmin {
         require(supportCardStats[cardData.supportCardId].supportCardId != 0, "PepemonCard: SupportCard not found");
         supportCardStats[cardData.supportCardId]=cardData;
         emit SupportCardUpdated(msg.sender, cardData.supportCardId);

@@ -27,6 +27,8 @@ abstract contract ChainLinkRngOracle is VRFConsumerBase, AdminRole {
         fee = 1 ether / 1000;
     }
 
+    //Get a new random number (paying link for it)
+    //Only callable by admin
     function getNewRandomNumber() public onlyAdmin returns (bytes32 requestId) {
         require(LINK.balanceOf(address(this)) >= fee, "Not enough LINK - fill contract with faucet");
         lastRequestId = requestRandomness(keyHash, fee);
@@ -43,7 +45,8 @@ abstract contract ChainLinkRngOracle is VRFConsumerBase, AdminRole {
     function fetchNumberByRequestId(bytes32 _requestId) public view returns (uint256) {
         return results[_requestId];
     }
-    
+
+    //Get most recent random number and use that as randomness source    
     function getRandomNumber() public view returns (uint256){
         return fetchNumberByRequestId(lastRequestId);        
     }
