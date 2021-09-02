@@ -570,15 +570,10 @@ contract PepemonBattle is AdminRole {
                 // Calc effects of EffectOne array
                 for (uint256 j = 0; j < card.effectOnes.length; j++) {
                     PepemonCardOracle.EffectOne memory effectOne = card.effectOnes[j];
-                    (bool isTriggered, uint256 num) = checkReqCode(atkHand, defHand, effectOne.reqCode, false);
+                    (bool isTriggered, uint256 multiplier) = checkReqCode(atkHand, defHand, effectOne.reqCode, false);
                     if (isTriggered) {
-                        if (num > 0) {
-                            defHand.currentBCstats.def += effectOne.triggeredPower * int256(num);
-                            totalNormalPower += effectOne.triggeredPower * int256(num);
-                        } else {
-                            defHand.currentBCstats.def += effectOne.triggeredPower;
-                            totalNormalPower += effectOne.triggeredPower;
-                        }
+                        defHand.currentBCstats.def += effectOne.triggeredPower * int256(multiplier);
+                        totalNormalPower += effectOne.triggeredPower * int256(multiplier);
                     }
                     else{
                         //If not triggered, use base power instead
