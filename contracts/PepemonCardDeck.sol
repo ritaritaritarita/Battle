@@ -5,27 +5,17 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "./lib/AdminRole.sol";
 import "./PepemonFactory.sol";
 import "./PepemonCardOracle.sol";
 import "./lib/Arrays.sol";
 
-contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
-    using SafeMath for uint256;
+contract PepemonCardDeck is ERC721, ERC1155Holder, AdminRole {
 
     struct Deck {
         uint256 battleCardId;
         uint256 supportCardCount;
-        mapping(uint256 => SupportCardType) supportCardTypes;
-        uint256[] supportCardTypeList;
-    }
-
-    struct SupportCardType {
-        uint256 supportCardId;
-        uint256 count;
-        uint256 pointer;
-        bool isEntity;
+        mapping(uint256 => uint) supportCardIds;
     }
 
     struct SupportCardRequest {
@@ -36,7 +26,8 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
     uint256 public MAX_SUPPORT_CARDS;
     uint256 public MIN_SUPPORT_CARDS;
 
-    uint256 nextDeckId;
+    uint256 deckCounter;
+
     address public battleCardAddress;
     address public supportCardAddress;
 
@@ -44,7 +35,6 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
     mapping(address => uint256[]) public playerToDecks;
 
     constructor() ERC721("Pepedeck", "Pepedeck") {
-        nextDeckId = 1;
         MAX_SUPPORT_CARDS = 60;
         MIN_SUPPORT_CARDS = 40;
     }
@@ -63,34 +53,34 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
     }
 
     // MODIFIERS
-    modifier sendersDeck(uint256 _deckId) {
+    modifier onlyDeckOwner(uint256 _deckId) {
         require(msg.sender == ownerOf(_deckId));
         _;
     }
 
-    function setBattleCardAddress(address _battleCardAddress) public onlyOwner {
+    function setBattleCardAddress(address _battleCardAddress) public onlyAdmin {
         battleCardAddress = _battleCardAddress;
     }
 
-    function setSupportCardAddress(address _supportCardAddress) public onlyOwner {
+    function setSupportCardAddress(address _supportCardAddress) public onlyAdmin {
         supportCardAddress = _supportCardAddress;
     }
 
-    function setMaxSupportCards(uint256 _maxSupportCards) public onlyOwner {
+    function setMaxSupportCards(uint256 _maxSupportCards) public onlyAdmin {
         MAX_SUPPORT_CARDS = _maxSupportCards;
     }
 
-    function setMinSupportCards(uint256 _minSupportCards) public onlyOwner {
+    function setMinSupportCards(uint256 _minSupportCards) public onlyAdmin {
         MIN_SUPPORT_CARDS = _minSupportCards;
     }
 
     function createDeck() public {
-        _safeMint(msg.sender, nextDeckId);
-        playerToDecks[msg.sender].push(nextDeckId);
-        nextDeckId = nextDeckId.add(1);
+        deckCounter++;
+        _safeMint(msg.sender, deckCounter);
+        playerToDecks[msg.sender].push(deckCounter);
     }
 
-    function addBattleCardToDeck(uint256 deckId, uint256 battleCardId) public {
+    function addBattleCardToDeck(uint256 deckId, uint256 battleCardId) public onlyDeckOwner(deckId) {
         require(
             PepemonFactory(battleCardAddress).balanceOf(msg.sender, battleCardId) >= 1,
             "PepemonCardDeck: Don't own battle card"
@@ -98,6 +88,7 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
 
         require(battleCardId != decks[deckId].battleCardId, "PepemonCardDeck: Card already in deck");
 
+        //Switch battle cards
         uint256 oldBattleCardId = decks[deckId].battleCardId;
         decks[deckId].battleCardId = battleCardId;
 
@@ -106,9 +97,7 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
         returnBattleCardFromDeck(oldBattleCardId);
     }
 
-    function removeBattleCardFromDeck(uint256 _deckId) public {
-        require(ownerOf(_deckId) == msg.sender, "PepemonCardDeck: Not your deck");
-
+    function removeBattleCardFromDeck(uint256 _deckId) public onlyDeckOwner(_deckId) {
         uint256 oldBattleCardId = decks[_deckId].battleCardId;
 
         decks[_deckId].battleCardId = 0;
@@ -116,15 +105,17 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
         returnBattleCardFromDeck(oldBattleCardId);
     }
 
-    function addSupportCardsToDeck(uint256 deckId, SupportCardRequest[] memory supportCards) public {
+    function addSupportCardsToDeck(uint256 deckId, SupportCardRequest[] memory supportCards) public onlyDeckOwner(deckId){
         for (uint256 i = 0; i < supportCards.length; i++) {
             addSupportCardToDeck(deckId, supportCards[i].supportCardId, supportCards[i].amount);
         }
     }
 
-    function removeSupportCardsFromDeck(uint256 _deckId, SupportCardRequest[] memory _supportCards) public {
-        for (uint256 i = 0; i < _supportCards.length; i++) {
-            removeSupportCardFromDeck(_deckId, _supportCards[i].supportCardId, _supportCards[i].amount);
+
+    //supportCardIndexDescOrder must be in descending order!
+    function removeSupportCardsFromDeckOrdered(uint256 deckId, uint[] calldata supportCardIndexDescOrder) public onlyDeckOwner(deckId){
+        for (uint256 i = 0; i < supportCardIndexDescOrder.length; i++) {
+            removeSupportCardFromDeck(deckId, supportCardIndexDescOrder[i]);
         }
     }
 
@@ -134,68 +125,36 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
         uint256 _supportCardId,
         uint256 _amount
     ) internal {
-        require(MAX_SUPPORT_CARDS >= decks[_deckId].supportCardCount.add(_amount), "PepemonCardDeck: Deck overflow");
+        require(MAX_SUPPORT_CARDS >= decks[_deckId].supportCardCount + (_amount), "PepemonCardDeck: Deck overflow");
         require(
             PepemonFactory(supportCardAddress).balanceOf(msg.sender, _supportCardId) >= _amount,
             "PepemonCardDeck: You don't have enough of this card"
         );
 
-        if (!decks[_deckId].supportCardTypes[_supportCardId].isEntity) {
-            decks[_deckId].supportCardTypes[_supportCardId] = SupportCardType({
-                supportCardId: _supportCardId,
-                count: _amount,
-                pointer: decks[_deckId].supportCardTypeList.length,
-                isEntity: true
-            });
-
-            // Prepend the ID to the list
-            decks[_deckId].supportCardTypeList.push(_supportCardId);
-        } else {
-            SupportCardType storage supportCard = decks[_deckId].supportCardTypes[_supportCardId];
-            supportCard.count = supportCard.count.add(_amount);
+        //Add _amount copies of the card to the deck
+        uint tempLen = decks[_deckId].supportCardCount;
+        for (uint i = 0; i < _amount; i++){
+            decks[_deckId].supportCardIds[tempLen] = _supportCardId;
+            tempLen++;
         }
-
-        decks[_deckId].supportCardCount = decks[_deckId].supportCardCount.add(_amount);
+        decks[_deckId].supportCardCount = tempLen;
 
         PepemonFactory(supportCardAddress).safeTransferFrom(msg.sender, address(this), _supportCardId, _amount, "");
     }
 
-  /*  function removeSupportCardTypeFromDeck(uint256 _deckId, uint256 _supportCardId) internal {
-        Deck storage deck = decks[_deckId];
-        SupportCardType storage supportCardType = decks[_deckId].supportCardTypes[_supportCardId];
-        require(deck.supportCardCount - supportCardType.count >= MIN_SUPPORT_CARDS, "PepemonCardDeck: Deck underflow");
-
-        uint256 cardTypeToRemove = supportCardType.pointer;
-
-        if (deck.supportCardTypeList.length > 1 && cardTypeToRemove != deck.supportCardTypeList.length - 1) {
-            // last card type in list
-            uint256 rowToMove = deck.supportCardTypeList[deck.supportCardTypeList.length - 1];
-
-            // swap delete row with row to move
-            decks[_deckId].supportCardTypes[rowToMove].pointer = cardTypeToRemove;
-        }
-
-        decks[_deckId].supportCardTypeList.pop();
-        delete decks[_deckId].supportCardTypes[cardTypeToRemove];
-    }*/
-
     function removeSupportCardFromDeck(
         uint256 _deckId,
-        uint256 _supportCardId,
-        uint256 _amount
+        uint256 supportCardIndex
     ) internal {
-        require(decks[_deckId].supportCardCount - _amount >= MIN_SUPPORT_CARDS, "PepemonCardDeck: Deck underflow");
-        SupportCardType storage supportCardList = decks[_deckId].supportCardTypes[_supportCardId];
-        supportCardList.count = supportCardList.count.sub(_amount);
-
-        decks[_deckId].supportCardCount = decks[_deckId].supportCardCount.sub(_amount);
-
-        if (supportCardList.count == 0) {
-            decks[_deckId].supportCardTypeList.pop();
-            delete decks[_deckId].supportCardTypes[_supportCardId];
-        }
-
-        PepemonFactory(supportCardAddress).safeTransferFrom(address(this), msg.sender, _supportCardId, _amount, "");
+        Deck storage deck = decks[_deckId];
+        uint tempLen = deck.supportCardCount;
+        require(supportCardIndex < tempLen, "ID out of bounds");
+        require(tempLen != 0, "DECK_EMPTY");
+        uint oldCard = deck.supportCardIds[supportCardIndex];
+        deck.supportCardIds[supportCardIndex] = deck.supportCardIds[tempLen-1];
+        deck.supportCardIds[tempLen-1] = 0;
+        deck.supportCardCount--;
+        PepemonFactory(supportCardAddress).safeTransferFrom(address(this), msg.sender, oldCard, 1, "");
     }
 
     function returnBattleCardFromDeck(uint256 _battleCardId) internal {
@@ -209,26 +168,6 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
         return decks[_deckId].battleCardId;
     }
 
-    function getCardTypesInDeck(uint256 _deckId) public view returns (uint256[] memory) {
-        Deck storage deck = decks[_deckId];
-
-        uint256[] memory supportCardTypes = new uint256[](deck.supportCardTypeList.length);
-
-        for (uint256 i = 0; i < deck.supportCardTypeList.length; i++) {
-            supportCardTypes[i] = deck.supportCardTypeList[i];
-        }
-
-        return supportCardTypes;
-    }
-
-    function getCountOfCardTypeInDeck(uint256 _deckId, uint256 _cardTypeId) public view returns (uint256) {
-        return decks[_deckId].supportCardTypes[_cardTypeId].count;
-    }
-
-    function getSupportCardCountInDeck(uint256 deckId) public view returns (uint256) {
-        return decks[deckId].supportCardCount;
-    }
-
     /**
      * @dev Returns array of support cards for a deck
      * @param _deckId uint256 ID of the deck
@@ -236,12 +175,8 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, Ownable {
     function getAllSupportCardsInDeck(uint256 _deckId) public view returns (uint256[] memory) {
         Deck storage deck = decks[_deckId];
         uint256[] memory supportCards = new uint256[](deck.supportCardCount);
-        uint256 idx = 0;
-        for (uint256 i = 0; i < deck.supportCardTypeList.length; i++) {
-            uint256 supportCardId = deck.supportCardTypeList[i];
-            for (uint256 j = 0; j < deck.supportCardTypes[supportCardId].count; j++) {
-                supportCards[idx++] = supportCardId;
-            }
+        for (uint256 i = 0; i < deck.supportCardCount; i++) {
+            supportCards[_deckId] = deck.supportCardIds[i];
         }
         return supportCards;
     }
