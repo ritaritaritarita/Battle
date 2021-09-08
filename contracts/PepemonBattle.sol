@@ -425,6 +425,9 @@ contract PepemonBattle is AdminRole {
 
         (atkHand, defHand) = calSupportCardsInHand(atkHand, defHand);
 
+        //Give 2 point advantage if weakness, 2 point disadvantage if resistance
+        atkHand.currentBCstats.atk += resistanceWeaknessCal(atkHand, defHand);
+
         // Fight
 
         //Calculate HP loss for defending player
@@ -466,22 +469,22 @@ contract PepemonBattle is AdminRole {
             if (cardStats.supportCardType == PepemonCardOracle.SupportCardType.OFFENSE) {
                 // Card type is OFFENSE.
                 // Calc effects of EffectOne array
-                for (uint256 j = 0; j < cardStats.effectOnes.length; j++) {
-                    PepemonCardOracle.EffectOne memory effectOne = cardStats.effectOnes[j];
-                    
-                    //Checks if that support card is triggered and by how much it is triggered by
-                    (bool isTriggered, uint256 multiplier) = checkReqCode(atkHand, defHand, effectOne.reqCode, true);
-                    if (isTriggered) {
-                        //use triggeredPower if triggered
-                        atkHand.currentBCstats.atk += effectOne.triggeredPower * int256(multiplier);
-                        totalNormalPower += effectOne.triggeredPower * int256(multiplier);
-                    }
-                    else{
-                        //use basePower if not
-                        atkHand.currentBCstats.atk += effectOne.basePower;
-                        totalNormalPower += effectOne.basePower;
-                    }
+
+                PepemonCardOracle.EffectOne memory effectOne = cardStats.effectOnes;
+                
+                //Checks if that support card is triggered and by how much it is triggered by
+                (bool isTriggered, uint256 multiplier) = checkReqCode(atkHand, defHand, effectOne.reqCode, true);
+                if (isTriggered) {
+                    //use triggeredPower if triggered
+                    atkHand.currentBCstats.atk += effectOne.triggeredPower * int256(multiplier);
+                    totalNormalPower += effectOne.triggeredPower * int256(multiplier);
                 }
+                else{
+                    //use basePower if not
+                    atkHand.currentBCstats.atk += effectOne.basePower;
+                    totalNormalPower += effectOne.basePower;
+                }
+
             } else if (cardStats.supportCardType == PepemonCardOracle.SupportCardType.STRONG_OFFENSE) {
                 // Card type is STRONG OFFENSE.
 
@@ -513,32 +516,31 @@ contract PepemonBattle is AdminRole {
                 }
 
                 // Calc effects of EffectOne array
-                for (uint256 j = 0; j < cardStats.effectOnes.length; j++) {
-                    PepemonCardOracle.EffectOne memory effectOne = cardStats.effectOnes[j];
-                    (bool isTriggered, uint256 multiplier) = checkReqCode(atkHand, defHand, effectOne.reqCode, true);
-                    if (isTriggered) {
-                        //If triggered: use triggered power
-                        if (multiplier > 1) {
-                            atkHand.currentBCstats.atk += effectOne.triggeredPower * int256(multiplier);
-                        } else {
-                            if (effectOne.effectTo == PepemonCardOracle.EffectTo.STRONG_ATTACK) {
-                                // If it's a use Special Attack instead of Attack card
-                                atkHand.currentBCstats.atk = atkHand.currentBCstats.sAtk;
-                                continue;
-                            } else if (effectOne.triggeredPower == 0) {
-                                // We have a card that says ATK is increased by amount
-                                // Equal to the total of all offense cards in the current turn
-                                isPower0CardIncluded = true;
-                                continue;
-                            }
-                            atkHand.currentBCstats.atk += effectOne.triggeredPower;
+
+                PepemonCardOracle.EffectOne memory effectOne = cardStats.effectOnes;
+                (bool isTriggered, uint256 multiplier) = checkReqCode(atkHand, defHand, effectOne.reqCode, true);
+                if (isTriggered) {
+                    //If triggered: use triggered power
+                    if (multiplier > 1) {
+                        atkHand.currentBCstats.atk += effectOne.triggeredPower * int256(multiplier);
+                    } else {
+                        if (effectOne.effectTo == PepemonCardOracle.EffectTo.STRONG_ATTACK) {
+                            // If it's a use Special Attack instead of Attack card
+                            atkHand.currentBCstats.atk = atkHand.currentBCstats.sAtk;
+                            continue;
+                        } else if (effectOne.triggeredPower == 0) {
+                            // We have a card that says ATK is increased by amount
+                            // Equal to the total of all offense cards in the current turn
+                            isPower0CardIncluded = true;
+                            continue;
                         }
+                        atkHand.currentBCstats.atk += effectOne.triggeredPower;
                     }
-                    else{
-                        //If not triggered: use base power instead
-                        atkHand.currentBCstats.atk += effectOne.basePower;
-                        totalNormalPower += effectOne.basePower;
-                    }
+                }
+                else{
+                    //If not triggered: use base power instead
+                    atkHand.currentBCstats.atk += effectOne.basePower;
+                    totalNormalPower += effectOne.basePower;
                 }
                 // If card lasts for >1 turns
                 if (cardStats.effectMany.power != 0) {
@@ -569,8 +571,8 @@ contract PepemonBattle is AdminRole {
             if (card.supportCardType == PepemonCardOracle.SupportCardType.DEFENSE) {
                 // Card type is DEFENSE
                 // Calc effects of EffectOne array
-                for (uint256 j = 0; j < card.effectOnes.length; j++) {
-                    PepemonCardOracle.EffectOne memory effectOne = card.effectOnes[j];
+
+                    PepemonCardOracle.EffectOne memory effectOne = card.effectOnes;
                     (bool isTriggered, uint256 multiplier) = checkReqCode(atkHand, defHand, effectOne.reqCode, false);
                     if (isTriggered) {
                         defHand.currentBCstats.def += effectOne.triggeredPower * int256(multiplier);
@@ -581,7 +583,7 @@ contract PepemonBattle is AdminRole {
                         defHand.currentBCstats.def += effectOne.basePower;
                         totalNormalPower += effectOne.basePower;
                     }
-                }
+
             } else if (card.supportCardType == PepemonCardOracle.SupportCardType.STRONG_DEFENSE) {
                 // Card type is STRONG DEFENSE
                 if (card.unstackable) {
@@ -605,30 +607,29 @@ contract PepemonBattle is AdminRole {
                     }
                 }
                 // Calc effects of EffectOne array
-                for (uint256 j = 0; j < card.effectOnes.length; j++) {
-                    PepemonCardOracle.EffectOne memory effectOne = card.effectOnes[j];
-                    (bool isTriggered, uint256 num) = checkReqCode(atkHand, defHand, effectOne.reqCode, false);
-                    if (isTriggered) {
-                        if (num > 0) {
-                            defHand.currentBCstats.def += effectOne.triggeredPower * int256(num);
-                        } else {
-                            if (effectOne.effectTo == PepemonCardOracle.EffectTo.STRONG_DEFENSE) {
-                                defHand.currentBCstats.def = defHand.currentBCstats.sDef;
-                                continue;
-                            } else if (effectOne.triggeredPower == 0) {
-                                // Equal to the total of all defense cards in the current turn
-                                isPower0CardIncluded = true;
-                                continue;
-                            }
-                            defHand.currentBCstats.def += effectOne.triggeredPower;
+                PepemonCardOracle.EffectOne memory effectOne = card.effectOnes;
+                (bool isTriggered, uint256 num) = checkReqCode(atkHand, defHand, effectOne.reqCode, false);
+                if (isTriggered) {
+                    if (num > 0) {
+                        defHand.currentBCstats.def += effectOne.triggeredPower * int256(num);
+                    } else {
+                        if (effectOne.effectTo == PepemonCardOracle.EffectTo.STRONG_DEFENSE) {
+                            defHand.currentBCstats.def = defHand.currentBCstats.sDef;
+                            continue;
+                        } else if (effectOne.triggeredPower == 0) {
+                            // Equal to the total of all defense cards in the current turn
+                            isPower0CardIncluded = true;
+                            continue;
                         }
-                    }
-                    else{
-                        //If not triggered, use base stats instead
-                        defHand.currentBCstats.def += effectOne.basePower;
-                        totalNormalPower += effectOne.basePower;
+                        defHand.currentBCstats.def += effectOne.triggeredPower;
                     }
                 }
+                else{
+                    //If not triggered, use base stats instead
+                    defHand.currentBCstats.def += effectOne.basePower;
+                    totalNormalPower += effectOne.basePower;
+                }
+            
                 // If card effect lasts >1 turn
                 if (card.effectMany.power != 0) {
                     // Add card to table if there are <5 cards on table right now
@@ -677,16 +678,13 @@ function checkReqCode(
         bool isAttacker
     ) internal view returns (bool, uint256) {
         bool isTriggered = false;
-        uint256 multiplier = 0;
+        uint256 multiplier = 1;
         if (reqCode == 0) {
             // No requirement
             isTriggered = true;
-            multiplier = 1;
         } else if (reqCode == 1) {
             // Intelligence of offense pepemon <= 5.
             isTriggered = (atkHand.currentBCstats.inte <= 5 );
-            multiplier = 1;
-
         } else if (reqCode == 2) {
             // Number of defense cards of defense pepemon is 0.
             isTriggered = true;
@@ -699,95 +697,28 @@ function checkReqCode(
                     break;
                 }
             }
-            multiplier = 1;
         } else if (reqCode == 3) {
             // Each +2 offense cards of offense pepemon.
-            for (uint256 i = 0; i < atkHand.currentBCstats.inte; i++) {
-                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(
-                    atkHand.supportCardInHandIds[i]
-                );
-                if (card.supportCardType != PepemonCardOracle.SupportCardType.OFFENSE) {
-                    continue;
-                }
-                for (uint256 j = 0; j < card.effectOnes.length; j++) {
-                    PepemonCardOracle.EffectOne memory effectOne = card.effectOnes[j];
-                    if (effectOne.basePower == 2) {
-                        multiplier++;
-                    }
-                }
-            }
-            isTriggered = (multiplier > 0 );
+            return countCards(atkHand, PepemonCardOracle.SupportCardType.OFFENSE, 2);
         } else if (reqCode == 4) {
             // Each +3 offense cards of offense pepemon.
-            for (uint256 i = 0; i < atkHand.currentBCstats.inte; i++) {
-                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(
-                    atkHand.supportCardInHandIds[i]
-                );
-                if (card.supportCardType != PepemonCardOracle.SupportCardType.OFFENSE) {
-                    continue;
-                }
-                for (uint256 j = 0; j < card.effectOnes.length; j++) {
-                    PepemonCardOracle.EffectOne memory effectOne = card.effectOnes[j];
-                    if (effectOne.basePower == 3) {
-                        multiplier++;
-                    }
-                }
-            }
-            isTriggered = (multiplier > 0 );
+            return countCards(atkHand, PepemonCardOracle.SupportCardType.OFFENSE, 3);
         } else if (reqCode == 5) {
             // Each offense card of offense pepemon.
-            for (uint256 i = 0; i < atkHand.currentBCstats.inte; i++) {
-                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(
-                    atkHand.supportCardInHandIds[i]
-                );
-                if (card.supportCardType != PepemonCardOracle.SupportCardType.OFFENSE) {
-                    continue;
-                }
-                multiplier++;
-            }
-            isTriggered = (multiplier > 0 );
+            return countCards(atkHand, PepemonCardOracle.SupportCardType.OFFENSE, 0);
+
         } else if (reqCode == 6) {
             // Each +3 defense card of defense pepemon.
-            for (uint256 i = 0; i < defHand.currentBCstats.inte; i++) {
-                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(
-                    defHand.supportCardInHandIds[i]
-                );
-                if (card.supportCardType != PepemonCardOracle.SupportCardType.DEFENSE) {
-                    continue;
-                }
-                for (uint256 j = 0; j < card.effectOnes.length; j++) {
-                    PepemonCardOracle.EffectOne memory effectOne = card.effectOnes[j];
-                    if (effectOne.basePower == 3) {
-                        multiplier++;
-                    }
-                }
-            }
-            isTriggered = (multiplier > 0 );
+            return countCards(defHand, PepemonCardOracle.SupportCardType.DEFENSE, 3);
         } else if (reqCode == 7) {
             // Each +4 defense card of defense pepemon.
-            for (uint256 i = 0; i < defHand.currentBCstats.inte; i++) {
-                PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(
-                    defHand.supportCardInHandIds[i]
-                );
-                if (card.supportCardType != PepemonCardOracle.SupportCardType.DEFENSE) {
-                    continue;
-                }
-                for (uint256 j = 0; j < card.effectOnes.length; j++) {
-                    PepemonCardOracle.EffectOne memory effectOne = card.effectOnes[j];
-                    if (effectOne.basePower == 4) {
-                        multiplier++;
-                    }
-                }
-            }
-            isTriggered = (multiplier > 0 );
+            return countCards(defHand, PepemonCardOracle.SupportCardType.DEFENSE, 4);
         } else if (reqCode == 8) {
             // Intelligence of defense pepemon <= 5.
             isTriggered = (defHand.currentBCstats.inte <= 5 );
-            multiplier = 1;
         } else if (reqCode == 9) {
             // Intelligence of defense pepemon >= 7.
             isTriggered = (defHand.currentBCstats.inte >= 7 );
-            multiplier = 1;
         } else if (reqCode == 10) {
             // Offense pepemon is using strong attack
             for (uint256 i = 0; i < atkHand.currentBCstats.inte; i++) {
@@ -802,20 +733,45 @@ function checkReqCode(
             multiplier = 1;
         } else if (reqCode == 11) {
             // The current HP is less than 50% of max HP.
-            if (isAttacker) {
-                isTriggered = (
-                    atkHand.health * 2 <= int256(_cardContract.getBattleCardById(atkHand.battleCardId).hp)
-                );
-            } else {
-                isTriggered = (
-                    defHand.health * 2 <= int256(_cardContract.getBattleCardById(defHand.battleCardId).hp)
-
-                );
-            }
-            multiplier = 1;
+            isTriggered = lessThanHalfHP(isAttacker ? atkHand : defHand);
         }
         return (isTriggered, multiplier);
     }
+
+    function lessThanHalfHP(Hand memory hand) internal view returns (bool){
+        return hand.health * 2 <= int256(_cardContract.getBattleCardById(hand.battleCardId).hp);
+    }
+    
+    function countCards(Hand memory hand, PepemonCardOracle.SupportCardType cardType, int basePower) internal view returns (bool, uint){
+        uint multiplier = 0;
+        for (uint256 i = 0; i < hand.currentBCstats.inte; i++) {
+            PepemonCardOracle.SupportCardStats memory card = _cardContract.getSupportCardById(
+                hand.supportCardInHandIds[i]
+            );
+            if (card.supportCardType != cardType) {
+                continue;
+            }
+            PepemonCardOracle.EffectOne memory effectOne = card.effectOnes;
+            if (effectOne.basePower == basePower || basePower == 0) {
+                multiplier++;
+            }
+        }
+        return (multiplier>0, multiplier);
+    }
+
+    function resistanceWeaknessCal(Hand memory atkHand, Hand memory defHand) internal view returns (int){
+        int adjustment = 0;
+        uint battleIdAtk = atkHand.battleCardId;
+        uint battleIdDef = defHand.battleCardId;
+        PepemonCardOracle.BattleCardTypes atkType = _cardContract.getBattleCardById(battleIdAtk).element;
+        PepemonCardOracle.BattleCardTypes defType = _cardContract.getBattleCardById(battleIdDef).element;
+        PepemonCardOracle.BattleCardTypes weakness = _cardContract.getWeakResist(defType).weakness;
+        PepemonCardOracle.BattleCardTypes resistance = _cardContract.getWeakResist(defType).resistance;
+        if (atkType == weakness) adjustment = 2;
+        if (atkType == resistance) adjustment = -2;
+        return adjustment;
+    }
 }
+
 
 

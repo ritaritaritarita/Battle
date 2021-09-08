@@ -6,7 +6,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "./lib/AdminRole.sol";
-import "./PepemonFactory.sol";
+import "./IPepemonFactory.sol";
 import "./PepemonCardOracle.sol";
 import "./lib/Arrays.sol";
 
@@ -24,7 +24,7 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, AdminRole {
     }
 
     uint256 public MAX_SUPPORT_CARDS;
-    uint256 public MIN_SUPPORT_CARDS;
+//    uint256 public MIN_SUPPORT_CARDS;
 
     uint256 deckCounter;
 
@@ -36,7 +36,7 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, AdminRole {
 
     constructor() ERC721("Pepedeck", "Pepedeck") {
         MAX_SUPPORT_CARDS = 60;
-        MIN_SUPPORT_CARDS = 40;
+  //      MIN_SUPPORT_CARDS = 40;
     }
 
     /**
@@ -70,9 +70,9 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, AdminRole {
         MAX_SUPPORT_CARDS = _maxSupportCards;
     }
 
-    function setMinSupportCards(uint256 _minSupportCards) public onlyAdmin {
-        MIN_SUPPORT_CARDS = _minSupportCards;
-    }
+    //function setMinSupportCards(uint256 _minSupportCards) public onlyAdmin {
+      //  MIN_SUPPORT_CARDS = _minSupportCards;
+    //}
 
     function createDeck() public {
         deckCounter++;
@@ -166,6 +166,10 @@ contract PepemonCardDeck is ERC721, ERC1155Holder, AdminRole {
     // VIEWS
     function getBattleCardInDeck(uint256 _deckId) public view returns (uint256) {
         return decks[_deckId].battleCardId;
+    }
+
+    function getSupportCardCountInDeck(uint256 _deckId) public view returns (uint256) {
+        return decks[_deckId].supportCardCount;
     }
 
     /**
